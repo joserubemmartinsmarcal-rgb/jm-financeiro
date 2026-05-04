@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#1E3A6F" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="JM Financeiro" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Controle Financeiro JM Transportes" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%231E3A6F'/><text x='90' y='118' font-family='Georgia,serif' font-size='80' font-weight='bold' fill='white' text-anchor='middle'>JM</text></svg>" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231E3A6F'/><text x='16' y='22' font-family='Georgia,serif' font-size='16' font-weight='bold' fill='white' text-anchor='middle'>JM</text></svg>" />
+  <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22JM%20Transportes%20Financeiro%22%2C%22short_name%22%3A%22JM%20Financeiro%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F5F7FB%22%2C%22theme_color%22%3A%22%231E3A6F%22%2C%22orientation%22%3A%22portrait%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Bcharset%3Dutf-8%2C%253Csvg%2520xmlns%253D%2527http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2527%2520viewBox%253D%25270%25200%2520512%2520512%2527%253E%253Crect%2520width%253D%2527512%2527%2520height%253D%2527512%2527%2520rx%253D%2527100%2527%2520fill%253D%2527%25231E3A6F%2527%252F%253E%253Ctext%2520x%253D%2527256%2527%2520y%253D%2527336%2527%2520font-family%253D%2527Georgia%252Cserif%2527%2520font-size%253D%2527220%2527%2520font-weight%253D%2527bold%2527%2520fill%253D%2527white%2527%2520text-anchor%253D%2527middle%2527%253EJM%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%252Bxml%22%2C%22purpose%22%3A%22any%22%7D%5D%7D" />
+  <title>JM Transportes — Financeiro</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.js"></script>
+  <script src="https://unpkg.com/lucide-react@0.383.0/dist/umd/lucide-react.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { background: #F5F7FB; overscroll-behavior-y: none; }
+    body { padding-top: env(safe-area-inset-top); }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    input, select, textarea { font-size: 16px !important; } /* prevent iOS zoom */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+
+    /* Install banner */
+    #install-banner {
+      position: fixed; bottom: 90px; left: 12px; right: 12px; z-index: 100;
+      background: linear-gradient(135deg, #1E3A6F, #142850);
+      color: white; padding: 14px 16px; border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(30,58,111,0.35);
+      display: none; align-items: center; gap: 12px;
+      animation: slideUp 0.4s ease-out;
+    }
+    #install-banner.show { display: flex; }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    #install-banner button {
+      background: #FF6B35; color: white; border: none;
+      padding: 8px 14px; border-radius: 10px; font-weight: 700;
+      font-size: 13px; cursor: pointer; white-space: nowrap;
+    }
+    #install-banner .close-x {
+      background: transparent; padding: 4px 8px; opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Install banner (Android/Desktop Chrome) -->
+  <div id="install-banner">
+    <div style="font-size: 28px;">📲</div>
+    <div style="flex: 1; min-width: 0;">
+      <div style="font-weight: 700; font-size: 14px;">Instalar como app</div>
+      <div style="font-size: 12px; opacity: 0.8;">Acesso rápido na tela inicial</div>
+    </div>
+    <button id="install-btn">Instalar</button>
+    <button class="close-x" id="install-close">✕</button>
+  </div>
+
+  <script>
+    // PWA install prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (!localStorage.getItem('jm:install-dismissed')) {
+        document.getElementById('install-banner').classList.add('show');
+      }
+    });
+    document.getElementById('install-btn').addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      document.getElementById('install-banner').classList.remove('show');
+    });
+    document.getElementById('install-close').addEventListener('click', () => {
+      document.getElementById('install-banner').classList.remove('show');
+      localStorage.setItem('jm:install-dismissed', '1');
+    });
+  </script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+    const {
+      BarChart, Bar, PieChart, Pie, Cell,
+      XAxis, YAxis, CartesianGrid, Tooltip,
+      ResponsiveContainer, Legend
+    } = Recharts;
+    const {
+      Wallet, TrendingUp, TrendingDown, FileText, Receipt,
+      AlertTriangle, BarChart3, Plus, Trash2, X, Truck,
+      CheckCircle2, AlertCircle, ArrowUpCircle, ArrowDownCircle,
+      CreditCard, PiggyBank, Calendar, Search
+    } = LucideReact;
+
+    const C = {
+      bg: "#F5F7FB", card: "#FFFFFF", navy: "#1E3A6F", navyDark: "#142850",
+      ink: "#0F172A", inkSoft: "#475569", inkMute: "#94A3B8",
+      primary: "#FF6B35", green: "#10B981", red: "#EF4444",
+      amber: "#F59E0B", purple: "#8B5CF6", cyan: "#06B6D4",
+      pink: "#EC4899", border: "#E2E8F0", borderSoft: "#F1F5F9",
+    };
+    const PIE_COLORS = ["#1E3A6F","#FF6B35","#10B981","#8B5CF6","#06B6D4","#F59E0B","#EC4899"];
+
+    const fmtBRL = v => (Number(v)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+    const fmtBRLc = v => { const n=Number(v)||0; return Math.abs(n)>=1000?`R$ ${(n/1000).toFixed(1)}k`:fmtBRL(n); };
+    const fmtDate = iso => { if(!iso) return "—"; const[y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; };
+    const todayISO = () => new Date().toISOString().slice(0,10);
+    const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+    const isVencido = d => d && d < todayISO();
+
+    const KEYS = { lancamentos:"jm:lancamentos", boletos:"jm:boletos", notas:"jm:notas", dividas:"jm:dividas" };
+
+    function useStored(key, initial) {
+      const [data, setData] = useState(() => { try { const v=localStorage.getItem(key); return v?JSON.parse(v):initial; } catch{ return initial; } });
+      useEffect(() => { try { localStorage.setItem(key, JSON.stringify(data)); } catch{} }, [data, key]);
+      return [data, setData];
+    }
+
+    const Card = ({ children, className="", style={}, accent }) => (
+      <div className={`rounded-2xl p-5 ${className}`} style={{ background:C.card, border:`1px solid ${C.border}`, boxShadow:"0 1px 3px rgba(15,23,42,0.04)", borderTop: accent?`3px solid ${accent}`:`1px solid ${C.border}`, ...style }}>{children}</div>
+    );
+    const Button = ({ children, onClick, variant="primary", className="", icon:Icon }) => {
+      const s = { primary:{bg:C.navy,color:"#fff"}, accent:{bg:C.primary,color:"#fff"}, ghost:{bg:"transparent",color:C.ink,border:`1px solid ${C.border}`}, danger:{bg:C.red,color:"#fff"}, success:{bg:C.green,color:"#fff"} }[variant];
+      return <button onClick={onClick} className={`px-4 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${className}`} style={{background:s.bg,color:s.color,border:s.border||"none"}}>{Icon&&<Icon size={16}/>}{children}</button>;
+    };
+    const Inp = ({ label, ...p }) => (
+      <label className="flex flex-col gap-1.5 text-sm">
+        {label && <span className="font-semibold text-xs uppercase tracking-wide" style={{color:C.inkSoft}}>{label}</span>}
+        <input {...p} className="px-3.5 py-2.5 rounded-lg text-sm outline-none" style={{background:C.borderSoft,border:"1.5px solid transparent",color:C.ink}} onFocus={e=>{e.target.style.borderColor=C.navy;e.target.style.background="#fff"}} onBlur={e=>{e.target.style.borderColor="transparent";e.target.style.background=C.borderSoft}} />
+      </label>
+    );
+    const Sel = ({ label, children, ...p }) => (
+      <label className="flex flex-col gap-1.5 text-sm">
+        {label && <span className="font-semibold text-xs uppercase tracking-wide" style={{color:C.inkSoft}}>{label}</span>}
+        <select {...p} className="px-3.5 py-2.5 rounded-lg text-sm outline-none cursor-pointer" style={{background:C.borderSoft,border:"1.5px solid transparent",color:C.ink}} onFocus={e=>{e.target.style.borderColor=C.navy}} onBlur={e=>{e.target.style.borderColor="transparent"}}>{children}</select>
+      </label>
+    );
+    const Badge = ({ children, color }) => <span className="px-2.5 py-1 rounded-md text-xs font-bold" style={{background:`${color}18`,color}}>{children}</span>;
+    const Modal = ({ open, onClose, title, children }) => {
+      if(!open) return null;
+      return <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{background:"rgba(15,23,42,0.5)",backdropFilter:"blur(4px)"}} onClick={onClose}>
+        <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl max-h-[90vh] overflow-y-auto" style={{background:C.card}} onClick={e=>e.stopPropagation()}>
+          <div className="sticky top-0 px-5 py-4 flex items-center justify-between" style={{background:C.card,borderBottom:`1px solid ${C.border}`}}>
+            <h3 className="font-bold text-lg" style={{color:C.ink}}>{title}</h3>
+            <button onClick={onClose} className="p-1.5 rounded-lg" style={{background:C.borderSoft}}><X size={18} style={{color:C.inkSoft}}/></button>
+          </div>
+          <div className="p-5">{children}</div>
+        </div>
+      </div>;
+    };
+    const Empty = ({ icon:Icon, title, hint }) => (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <div className="p-4 rounded-2xl mb-3" style={{background:C.borderSoft}}><Icon size={32} style={{color:C.inkMute}}/></div>
+        <p className="font-bold text-base" style={{color:C.ink}}>{title}</p>
+        <p className="text-sm mt-1" style={{color:C.inkSoft}}>{hint}</p>
+      </div>
+    );
+
+    const CATS_REC = ["Frete - Carga Fechada","Frete - Carga Fracionada","Frete - Mudanças","Locação de Veículo","Outros Serviços","Receita Financeira"];
+    const CATS_DESP = ["Combustível","Pedágio","Manutenção","Pneus","Salários Motoristas","Encargos Sociais","Seguro Veículos","IPVA / Licenciamento","Aluguel Garagem","Energia / Água","Telefone / Internet","Marketing","Contabilidade","Impostos","Outras Despesas"];
+
+    function KpiMini({ label, value, icon:Icon, color, isCount }) {
+      return <Card accent={color} className="!p-4">
+        <div className="p-2 rounded-lg mb-2 w-fit" style={{background:`${color}15`}}><Icon size={16} color={color}/></div>
+        <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{color:C.inkMute}}>{label}</p>
+        <p className="font-bold text-lg" style={{color:C.ink}}>{isCount?value:fmtBRLc(value)}</p>
+      </Card>;
+    }
+
+    function Dashboard({ lancamentos, boletos, notas, dividas }) {
+      const stats = useMemo(() => {
+        const mes = todayISO().slice(0,7);
+        const recMes = lancamentos.filter(l=>l.tipo==="Receita"&&l.data?.startsWith(mes)).reduce((s,l)=>s+Number(l.valor),0);
+        const despMes = lancamentos.filter(l=>l.tipo==="Despesa"&&l.data?.startsWith(mes)).reduce((s,l)=>s+Number(l.valor),0);
+        const aReceber = notas.filter(n=>n.status!=="Recebido").reduce((s,n)=>s+Number(n.valor),0);
+        const aPagar = boletos.filter(b=>b.status!=="Pago").reduce((s,b)=>s+Number(b.valor),0);
+        const dividaTotal = dividas.filter(d=>d.status==="Ativo").reduce((s,d)=>s+Number(d.saldo),0);
+        const vencidos = boletos.filter(b=>b.status!=="Pago"&&isVencido(b.vencimento)).length + notas.filter(n=>n.status!=="Recebido"&&isVencido(n.vencimento)).length;
+        return { recMes, despMes, resultado:recMes-despMes, aReceber, aPagar, dividaTotal, vencidos };
+      },[lancamentos,boletos,notas,dividas]);
+
+      const chartData = useMemo(() => {
+        const now = new Date();
+        return Array.from({length:6},(_,i)=>{ const d=new Date(now.getFullYear(),now.getMonth()-5+i,1); const key=d.toISOString().slice(0,7); const label=d.toLocaleDateString("pt-BR",{month:"short"}); const rec=lancamentos.filter(l=>l.tipo==="Receita"&&l.data?.startsWith(key)).reduce((s,l)=>s+Number(l.valor),0); const desp=lancamentos.filter(l=>l.tipo==="Despesa"&&l.data?.startsWith(key)).reduce((s,l)=>s+Number(l.valor),0); return {mes:label,Receitas:rec,Despesas:desp}; });
+      },[lancamentos]);
+
+      const pieData = useMemo(() => {
+        const mes=todayISO().slice(0,7), m={};
+        lancamentos.filter(l=>l.tipo==="Despesa"&&l.data?.startsWith(mes)).forEach(l=>{ m[l.categoria]=(m[l.categoria]||0)+Number(l.valor); });
+        return Object.entries(m).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value).slice(0,6);
+      },[lancamentos]);
+
+      return <div className="space-y-4">
+        <Card style={{background:`linear-gradient(135deg,${C.navy} 0%,${C.navyDark} 100%)`,border:"none"}}>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{color:"#B8C5DB"}}>Resultado do mês</p>
+              <p className="text-3xl font-bold text-white mt-1">{fmtBRL(stats.resultado)}</p>
+            </div>
+            <div className="p-2.5 rounded-xl" style={{background:stats.resultado>=0?`${C.green}30`:`${C.red}30`}}>
+              {stats.resultado>=0?<TrendingUp size={22} color={C.green}/>:<TrendingDown size={22} color={C.red}/>}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[{label:"Receitas",val:stats.recMes,icon:ArrowUpCircle,color:C.green},{label:"Despesas",val:stats.despMes,icon:ArrowDownCircle,color:C.red}].map(({label,val,icon:Icon,color})=>
+              <div key={label} className="p-3 rounded-xl" style={{background:"rgba(255,255,255,0.1)"}}>
+                <div className="flex items-center gap-1.5 mb-1"><Icon size={14} color={color}/><span className="text-[10px] font-bold uppercase tracking-wider" style={{color:"#B8C5DB"}}>{label}</span></div>
+                <p className="text-white font-bold text-lg">{fmtBRLc(val)}</p>
+              </div>
+            )}
+          </div>
+        </Card>
+        <div className="grid grid-cols-2 gap-3">
+          <KpiMini label="A Receber" value={stats.aReceber} icon={FileText} color={C.green}/>
+          <KpiMini label="A Pagar" value={stats.aPagar} icon={Receipt} color={C.amber}/>
+          <KpiMini label="Dívida Ativa" value={stats.dividaTotal} icon={AlertTriangle} color={C.red}/>
+          <KpiMini label="Vencidos" value={stats.vencidos} icon={AlertCircle} color={C.purple} isCount/>
+        </div>
+        <Card accent={C.primary}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-base" style={{color:C.ink}}>Receitas × Despesas</h3>
+            <span className="text-xs font-semibold" style={{color:C.inkMute}}>Últimos 6 meses</span>
+          </div>
+          {chartData.every(d=>d.Receitas===0&&d.Despesas===0)?<Empty icon={BarChart3} title="Sem dados" hint="Adicione lançamentos"/>:
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} margin={{top:5,right:5,left:-20,bottom:5}}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false}/>
+              <XAxis dataKey="mes" tick={{fontSize:11,fill:C.inkSoft}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fontSize:10,fill:C.inkMute}} axisLine={false} tickLine={false} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,fontSize:12}} formatter={v=>fmtBRL(v)}/>
+              <Legend wrapperStyle={{fontSize:12}}/>
+              <Bar dataKey="Receitas" fill={C.green} radius={[6,6,0,0]}/>
+              <Bar dataKey="Despesas" fill={C.red} radius={[6,6,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>}
+        </Card>
+        <Card accent={C.purple}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-base" style={{color:C.ink}}>Despesas por Categoria</h3>
+            <span className="text-xs font-semibold" style={{color:C.inkMute}}>Mês atual</span>
+          </div>
+          {pieData.length===0?<Empty icon={PiggyBank} title="Sem despesas" hint="Cadastre saídas"/>:
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3}>
+                  {pieData.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
+                </Pie>
+                <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,fontSize:12}} formatter={v=>fmtBRL(v)}/>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex-1 w-full space-y-1.5">
+              {pieData.map((item,i)=>(
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{background:PIE_COLORS[i%PIE_COLORS.length]}}/>
+                    <span className="truncate font-medium" style={{color:C.ink}}>{item.name}</span>
+                  </div>
+                  <span className="font-bold text-xs ml-2" style={{color:C.inkSoft}}>{fmtBRLc(item.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>}
+        </Card>
+      </div>;
+    }
+
+    function Lancamentos({ data, setData }) {
+      const [open,setOpen]=useState(false);
+      const [search,setSearch]=useState("");
+      const [form,setForm]=useState({data:todayISO(),descricao:"",categoria:"",tipo:"Receita",valor:""});
+      const handleAdd=()=>{ if(!form.descricao||!form.valor||!form.categoria)return; setData([{id:uid(),...form,valor:Number(form.valor)},...data]); setForm({data:todayISO(),descricao:"",categoria:"",tipo:"Receita",valor:""}); setOpen(false); };
+      const filtered=data.filter(l=>l.descricao?.toLowerCase().includes(search.toLowerCase())||l.categoria?.toLowerCase().includes(search.toLowerCase()));
+      const totalRec=data.filter(l=>l.tipo==="Receita").reduce((s,l)=>s+Number(l.valor),0);
+      const totalDesp=data.filter(l=>l.tipo==="Despesa").reduce((s,l)=>s+Number(l.valor),0);
+      return <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div><h2 className="font-bold text-2xl" style={{color:C.ink}}>Lançamentos</h2><p className="text-sm" style={{color:C.inkSoft}}>{data.length} registros</p></div>
+          <Button onClick={()=>setOpen(true)} variant="accent" icon={Plus}>Novo</Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Card accent={C.green} className="!p-4"><p className="text-[10px] font-bold uppercase tracking-wider" style={{color:C.inkMute}}>Receitas</p><p className="font-bold text-xl mt-1" style={{color:C.green}}>{fmtBRLc(totalRec)}</p></Card>
+          <Card accent={C.red} className="!p-4"><p className="text-[10px] font-bold uppercase tracking-wider" style={{color:C.inkMute}}>Despesas</p><p className="font-bold text-xl mt-1" style={{color:C.red}}>{fmtBRLc(totalDesp)}</p></Card>
+        </div>
+        <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{color:C.inkMute}}/><input placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none" style={{background:C.card,border:`1px solid ${C.border}`,color:C.ink}}/></div>
+        {filtered.length===0?<Card><Empty icon={Wallet} title="Nenhum lançamento" hint="Toque em 'Novo' para começar"/></Card>:
+        <div className="space-y-2">{filtered.map(l=>(
+          <Card key={l.id} className="!p-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg flex-shrink-0" style={{background:l.tipo==="Receita"?`${C.green}15`:`${C.red}15`}}>
+                {l.tipo==="Receita"?<ArrowUpCircle size={20} color={C.green}/>:<ArrowDownCircle size={20} color={C.red}/>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm" style={{color:C.ink}}>{l.descricao}</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap"><Badge color={C.navy}>{l.categoria}</Badge><span className="text-xs" style={{color:C.inkMute}}>{fmtDate(l.data)}</span></div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="font-bold text-sm" style={{color:l.tipo==="Receita"?C.green:C.red}}>{l.tipo==="Receita"?"+":"-"} {fmtBRLc(l.valor)}</span>
+                <button onClick={()=>setData(data.filter(d=>d.id!==l.id))} className="p-1.5 rounded-lg" style={{background:C.borderSoft}}><Trash2 size={14} style={{color:C.red}}/></button>
+              </div>
+            </div>
+          </Card>
+        ))}</div>}
+        <Modal open={open} onClose={()=>setOpen(false)} title="Novo Lançamento">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              {["Receita","Despesa"].map(t=><button key={t} onClick={()=>setForm({...form,tipo:t,categoria:""})} className="p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all" style={{background:form.tipo===t?(t==="Receita"?C.green:C.red):C.borderSoft,color:form.tipo===t?"#fff":C.inkSoft}}>{t==="Receita"?<ArrowUpCircle size={16}/>:<ArrowDownCircle size={16}/>}{t}</button>)}
+            </div>
+            <Inp label="Descrição" value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} placeholder="Ex: Frete SP → RJ"/>
+            <div className="grid grid-cols-2 gap-3">
+              <Inp label="Data" type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})}/>
+              <Inp label="Valor (R$)" type="number" step="0.01" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})} placeholder="0,00"/>
+            </div>
+            <Sel label="Categoria" value={form.categoria} onChange={e=>setForm({...form,categoria:e.target.value})}>
+              <option value="">Selecione...</option>
+              {(form.tipo==="Receita"?CATS_REC:CATS_DESP).map(c=><option key={c}>{c}</option>)}
+            </Sel>
+            <Button onClick={handleAdd} variant="primary" className="w-full" icon={Plus}>Adicionar</Button>
+          </div>
+        </Modal>
+      </div>;
+    }
+
+    function Boletos({ data, setData }) {
+      const [open,setOpen]=useState(false);
+      const [form,setForm]=useState({fornecedor:"",categoria:"",valor:"",vencimento:todayISO(),status:"A Pagar"});
+      const handleAdd=()=>{ if(!form.fornecedor||!form.valor)return; setData([{id:uid(),...form,valor:Number(form.valor)},...data]); setForm({fornecedor:"",categoria:"",valor:"",vencimento:todayISO(),status:"A Pagar"}); setOpen(false); };
+      const sorted=[...data].sort((a,b)=>{ if(a.status==="Pago"&&b.status!=="Pago")return 1; if(b.status==="Pago"&&a.status!=="Pago")return -1; return (a.vencimento||"").localeCompare(b.vencimento||""); });
+      const aPagar=data.filter(b=>b.status!=="Pago").reduce((s,b)=>s+Number(b.valor),0);
+      const vencidos=data.filter(b=>b.status!=="Pago"&&isVencido(b.vencimento));
+      return <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div><h2 className="font-bold text-2xl" style={{color:C.ink}}>A Pagar</h2><p className="text-sm" style={{color:C.inkSoft}}>{data.filter(b=>b.status!=="Pago").length} abertos</p></div>
+          <Button onClick={()=>setOpen(true)} variant="accent" icon={Plus}>Novo</Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Card accent={C.amber} className="!p-4"><p className="text-[10px] font-bold uppercase tracking-wider" style={{color:C.inkMute}}>Total a Pagar</p><p className="font-bold text-xl mt-1" style={{color:C.amber}}>{fmtBRLc(aPagar)}</p></Card>
+          <Card accent={C.red} className="!p-4"><p className="text-[10px] font-bold uppercase tracking-wider" style={{color:C.inkMute}}>Vencidos ({vencidos.length})</p><p className="font-bold text-xl mt-1" style={{color:C.red}}>{fmtBRLc(vencidos.reduce((s,b)=>s+Number(b.valor),0))}</p></Card>
+        </div>
+        {sorted.length===0?<Card><Empty icon={Receipt} title="Nenhum boleto" hint="Cadastre boletos e acompanhe vencimentos"/></Card>:
+        <div className="space-y-2">{sorted.map(b=>{ const venc=isVencido(b.vencimento)&&b.status!=="Pago"; return (
+          <Card key={b.id} className="!p-4">
+            <div className="flex items-start gap-3">
+              <button onClick={()=>setData(data.map(x=>x.id===b.id?{...x,status:x.status==="Pago"?"A Pagar":"Pago"}:x))} className="p-2 rounded-lg flex-shrink-0" style={{background:b.status==="Pago"?`${C.green}15`:venc?`${C.red}15`:`${C.amber}15`}}>
+                {b.status==="Pago"?<CheckCircle2 size={20} color={C.green}/>:venc?<AlertCircle size={20} color={C.red}/>:<Receipt size={20} color={C.amber}/>}
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm" style={{color:C.ink,textDecoration:b.status==="Pago"?"line-through":"none"}}>{b.fornecedor}</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {b.categoria&&<Badge color={C.navy}>{b.categoria}</Badge>}
+                  <Badge color={b.status==="Pago"?C.green:venc?C.red:C.amber}>{b.status==="Pago"?"Pago":venc?"VENCIDO":"A Pagar"}</Badge>
+                  <span className="text-xs flex items-center gap-1" style={{color:C.inkMute}}><Calendar size={10}/>{fmtDate(b.vencimento)}</span>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <span className="font-bold text-sm" style={{color:C.ink}}>{fmtBRLc(b.valor)}</span>
+                <button onClick={()=>setData(data.filter(x=>x.id!==b.id))} className="p-1.5 rounded-lg" style={{background:C.borderSoft}}><Trash2 size={14} style={{color:C.red}}/></button>
+              </div>
+            </div>
+          </Card>
+        ); })}</div>}
+        <Modal open={open} onClose={()=>setOpen(false)} title="Novo Boleto">
+          <div className="space-y-3">
+            <Inp label="Fornecedor" value={form.fornecedor} onChange={e=>setForm({...form,fornecedor:e.target.value})} placeholder="Ex: Posto Shell"/>
+            <Sel label="Categoria" value={form.categoria} onChange={e=>setForm({...form,categoria:e.target.value})}><option value="">Selecione...</option>{CATS_DESP.map(c=><option key={c}>{c}</option>)}</Sel>
+            <div className="grid grid-cols-2 gap-3">
+              <Inp label="Valor (R$)" type="number" step="0.01" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})} placeholder="0,00"/>
+              <Inp label="Vencimento" type="date" value={form.vencimento} onChange={e=>setForm({...form,vencimento:e.target.value})}/>
+            </div>
+            <Button onClick={handleAdd} variant="primary" className="w-full" icon={Plus}>Adicionar Boleto</Button>
+          </div>
+        </Modal>
+      </div>;
+    }
+
+    function Notas({ data, setData }) {
+      const [open,setOpen]=useState(false);
+      const [form,setForm]=useState({cliente:"",numNota:"",valor:"",vencimento:todayISO(),status:"A Receber"});
+      const handleAdd=()=>{ if(!form.cliente||!form.valor)return; setData([{id:uid(),...form,valor:Number(form.valor)},...data]); setForm({cliente:"",numNota:"",valor:"",vencimento:todayISO(),status:"A Receber"}); setOpen(false); };
+      const sorted=[...data].sort((a,b)=>{ if(a.status==="Recebido"&&b.status!=="Recebido")return 1; if(b.status==="Recebido"&&a.status!=="Recebido")return -1; return (a.vencimento||"").localeCompare(b.vencimento||""); });
+      const aReceber=data.filter(n=>n.status!=="Recebido").reduce((s,n)=>s+Number(n.valor),0);
+      const recebido=data.filter(n=>n.status==="Recebido").reduce((s,n)=>s+Number(n.valor),0);
+      return <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div><h2 className="font-bold text-2xl" style={{color:C.ink}}>A Receber</h2><p className="text-sm" style={{color:C.inkSoft}}>{data.filter(n=>n.status!=="Recebido").length} abertos</p></div>
+          <Button onClick={()=>setOpen(true)} variant="accent" icon={Plus}>Nova</Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Card accent={C.green} className="!p-4"><p className="text-[10px] font-bold uppercase tracking-wider" style={{color:C.inkMute}}>A Receber</p><p className="font-bold text-xl mt-1" style={{color:C.green}}>{fmtBRLc(aReceber)}</p></Card>
+          <Card accent={C.cyan} className="!p-4"><p className="text-[10px] font-bold uppercase tracking-wider" style={{color:C.inkMute}}>Já Recebido</p><p className="font-bold text-xl mt-1" style={{color:C.cyan}}>{fmtBRLc(recebido)}</p></Card>
+        </div>
+        {sorted.length===0?<Card><Empty icon={FileText} title="Nenhuma nota" hint="Cadastre notas fiscais a receber"/></Card>:
+        <div className="space-y-2">{sorted.map(n=>{ const venc=isVencido(n.vencimento)&&n.status!=="Recebido"; return (
+          <Card key={n.id} className="!p-4">
+            <div className="flex items-start gap-3">
+              <button onClick={()=>setData(data.map(x=>x.id===n.id?{...x,status:x.status==="Recebido"?"A Receber":"Recebido"}:x))} className="p-2 rounded-lg flex-shrink-0" style={{background:n.status==="Recebido"?`${C.green}15`:venc?`${C.red}15`:`${C.cyan}15`}}>
+                {n.status==="Recebido"?<CheckCircle2 size={20} color={C.green}/>:venc?<AlertCircle size={20} color={C.red}/>:<FileText size={20} color={C.cyan}/>}
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm" style={{color:C.ink,textDecoration:n.status==="Recebido"?"line-through":"none"}}>{n.cliente}</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {n.numNota&&<Badge color={C.navy}>NF {n.numNota}</Badge>}
+                  <Badge color={n.status==="Recebido"?C.green:venc?C.red:C.cyan}>{n.status==="Recebido"?"Recebido":venc?"VENCIDO":"A Receber"}</Badge>
+                  <span className="text-xs flex items-center gap-1" style={{color:C.inkMute}}><Calendar size={10}/>{fmtDate(n.vencimento)}</span>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <span className="font-bold text-sm" style={{color:C.ink}}>{fmtBRLc(n.valor)}</span>
+                <button onClick={()=>setData(data.filter(x=>x.id!==n.id))} className="p-1.5 rounded-lg" style={{background:C.borderSoft}}><Trash2 size={14} style={{color:C.red}}/></button>
+              </div>
+            </div>
+          </Card>
+        ); })}</div>}
+        <Modal open={open} onClose={()=>setOpen(false)} title="Nova Nota a Receber">
+          <div className="space-y-3">
+            <Inp label="Cliente" value={form.cliente} onChange={e=>setForm({...form,cliente:e.target.value})} placeholder="Ex: Transportadora ABC"/>
+            <Inp label="Nº Nota Fiscal (opcional)" value={form.numNota} onChange={e=>setForm({...form,numNota:e.target.value})} placeholder="001234"/>
+            <div className="grid grid-cols-2 gap-3">
+              <Inp label="Valor (R$)" type="number" step="0.01" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})} placeholder="0,00"/>
+              <Inp label="Vencimento" type="date" value={form.vencimento} onChange={e=>setForm({...form,vencimento:e.target.value})}/>
+            </div>
+            <Button onClick={handleAdd} variant="primary" className="w-full" icon={Plus}>Adicionar Nota</Button>
+          </div>
+        </Modal>
+      </div>;
+    }
+
+    function Dividas({ data, setData }) {
+      const [open,setOpen]=useState(false);
+      const [form,setForm]=useState({credor:"",tipo:"Empréstimo",valorOriginal:"",saldo:"",parcelaTotal:"",parcelaPaga:"",valorParcela:"",proxVenc:todayISO(),status:"Ativo"});
+      const handleAdd=()=>{ if(!form.credor||!form.saldo)return; setData([{id:uid(),...form,valorOriginal:Number(form.valorOriginal)||0,saldo:Number(form.saldo),parcelaTotal:Number(form.parcelaTotal)||0,parcelaPaga:Number(form.parcelaPaga)||0,valorParcela:Number(form.valorParcela)||0},...data]); setForm({credor:"",tipo:"Empréstimo",valorOriginal:"",saldo:"",parcelaTotal:"",parcelaPaga:"",valorParcela:"",proxVenc:todayISO(),status:"Ativo"}); setOpen(false); };
+      const dividaTotal=data.filter(d=>d.status==="Ativo").reduce((s,d)=>s+Number(d.saldo),0);
+      const mensal=data.filter(d=>d.status==="Ativo").reduce((s,d)=>s+Number(d.valorParcela),0);
+      return <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div><h2 className="font-bold text-2xl" style={{color:C.ink}}>Dívidas</h2><p className="text-sm" style={{color:C.inkSoft}}>{data.filter(d=>d.status==="Ativo").length} ativas</p></div>
+          <Button onClick={()=>setOpen(true)} variant="accent" icon={Plus}>Nova</Button>
+        </div>
+        <Card style={{background:`linear-gradient(135deg,${C.purple} 0%,#6D28D9 100%)`,border:"none"}}>
+          <div className="flex items-start justify-between mb-3">
+            <div><p className="text-xs font-bold uppercase tracking-wider" style={{color:"#E9D5FF"}}>Dívida Total Ativa</p><p className="text-3xl font-bold text-white mt-1">{fmtBRL(dividaTotal)}</p></div>
+            <div className="p-2 rounded-xl" style={{background:"rgba(255,255,255,0.2)"}}><AlertTriangle size={20} color="#fff"/></div>
+          </div>
+          <div className="p-3 rounded-xl" style={{background:"rgba(255,255,255,0.15)"}}>
+            <div className="flex items-center justify-between"><span className="text-xs font-semibold" style={{color:"#E9D5FF"}}>Compromisso mensal</span><span className="text-white font-bold">{fmtBRL(mensal)}</span></div>
+          </div>
+        </Card>
+        {data.length===0?<Card><Empty icon={AlertTriangle} title="Sem dívidas" hint="Adicione empréstimos e financiamentos"/></Card>:
+        <div className="space-y-2">{data.map(d=>{ const prog=d.parcelaTotal>0?(d.parcelaPaga/d.parcelaTotal)*100:0; return (
+          <Card key={d.id} accent={d.status==="Quitado"?C.green:C.purple} className="!p-4">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="p-2 rounded-lg flex-shrink-0" style={{background:`${C.purple}15`}}><CreditCard size={20} color={C.purple}/></div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm" style={{color:C.ink}}>{d.credor}</p>
+                <div className="flex items-center gap-2 mt-1"><Badge color={C.navy}>{d.tipo}</Badge><Badge color={d.status==="Quitado"?C.green:C.amber}>{d.status}</Badge></div>
+              </div>
+              <button onClick={()=>setData(data.filter(x=>x.id!==d.id))} className="p-1.5 rounded-lg" style={{background:C.borderSoft}}><Trash2 size={14} style={{color:C.red}}/></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div><p className="text-[10px] font-bold uppercase" style={{color:C.inkMute}}>Saldo</p><p className="font-bold" style={{color:C.red}}>{fmtBRLc(d.saldo)}</p></div>
+              <div><p className="text-[10px] font-bold uppercase" style={{color:C.inkMute}}>Parcela</p><p className="font-bold" style={{color:C.ink}}>{fmtBRLc(d.valorParcela)}</p></div>
+            </div>
+            {d.parcelaTotal>0&&<div className="mb-3">
+              <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-semibold" style={{color:C.inkSoft}}>{d.parcelaPaga} de {d.parcelaTotal} parcelas</span><span className="text-xs font-bold" style={{color:C.purple}}>{prog.toFixed(0)}%</span></div>
+              <div className="h-2 rounded-full overflow-hidden" style={{background:C.borderSoft}}><div className="h-full rounded-full transition-all" style={{width:`${prog}%`,background:`linear-gradient(90deg,${C.purple},${C.pink})`}}/></div>
+            </div>}
+            {d.status==="Ativo"&&<Button onClick={()=>setData(data.map(x=>x.id!==d.id?x:{ ...x, parcelaPaga:(x.parcelaPaga||0)+1, saldo:Math.max(0,(x.saldo||0)-(x.valorParcela||0)), status:(x.parcelaPaga+1)>=x.parcelaTotal?"Quitado":"Ativo" }))} variant="success" className="w-full !py-2 !text-xs" icon={CheckCircle2}>Marcar parcela paga</Button>}
+          </Card>
+        ); })}</div>}
+        <Modal open={open} onClose={()=>setOpen(false)} title="Nova Dívida">
+          <div className="space-y-3">
+            <Inp label="Credor / Banco" value={form.credor} onChange={e=>setForm({...form,credor:e.target.value})} placeholder="Ex: Banco Itaú"/>
+            <Sel label="Tipo" value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}><option>Empréstimo</option><option>Financiamento</option><option>Parcelamento</option><option>Cartão</option></Sel>
+            <div className="grid grid-cols-2 gap-3">
+              <Inp label="Valor Original" type="number" step="0.01" value={form.valorOriginal} onChange={e=>setForm({...form,valorOriginal:e.target.value})} placeholder="0,00"/>
+              <Inp label="Saldo Devedor" type="number" step="0.01" value={form.saldo} onChange={e=>setForm({...form,saldo:e.target.value})} placeholder="0,00"/>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Inp label="Parc. Total" type="number" value={form.parcelaTotal} onChange={e=>setForm({...form,parcelaTotal:e.target.value})}/>
+              <Inp label="Parc. Pagas" type="number" value={form.parcelaPaga} onChange={e=>setForm({...form,parcelaPaga:e.target.value})}/>
+              <Inp label="Valor Parc." type="number" step="0.01" value={form.valorParcela} onChange={e=>setForm({...form,valorParcela:e.target.value})}/>
+            </div>
+            <Button onClick={handleAdd} variant="primary" className="w-full" icon={Plus}>Adicionar Dívida</Button>
+          </div>
+        </Modal>
+      </div>;
+    }
+
+    function App() {
+      const [tab,setTab]=useState("dashboard");
+      const [lancamentos,setLancamentos]=useStored(KEYS.lancamentos,[]);
+      const [boletos,setBoletos]=useStored(KEYS.boletos,[]);
+      const [notas,setNotas]=useStored(KEYS.notas,[]);
+      const [dividas,setDividas]=useStored(KEYS.dividas,[]);
+      const tabs=[{id:"dashboard",label:"Painel",icon:BarChart3},{id:"lancamentos",label:"Lançamentos",icon:Wallet},{id:"boletos",label:"A Pagar",icon:Receipt},{id:"notas",label:"A Receber",icon:FileText},{id:"dividas",label:"Dívidas",icon:AlertTriangle}];
+      return <div className="min-h-screen w-full" style={{background:C.bg,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+        <header className="sticky top-0 z-40 px-4 py-3" style={{background:`linear-gradient(135deg,${C.navy} 0%,${C.navyDark} 100%)`,boxShadow:"0 4px 16px rgba(30,58,111,0.2)"}}>
+          <div className="max-w-6xl mx-auto flex items-center gap-3">
+            <div className="flex items-center justify-center rounded-xl" style={{width:44,height:44,background:`linear-gradient(135deg,${C.navy} 0%,${C.navyDark} 100%)`,border:"2px solid rgba(255,255,255,0.2)"}}>
+              <span className="font-bold text-white text-lg" style={{fontFamily:"Georgia,serif"}}>JM</span>
+            </div>
+            <div className="flex-1"><h1 className="font-bold text-white text-lg" style={{fontFamily:"Georgia,serif"}}>JM Transportes</h1><p className="text-xs" style={{color:"#B8C5DB"}}>Controle Financeiro</p></div>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{background:"rgba(255,255,255,0.1)"}}><Truck size={16} style={{color:"#FF6B35"}}/><span className="text-xs font-semibold text-white">Online</span></div>
+          </div>
+        </header>
+        <main className="max-w-6xl mx-auto px-4 py-5 pb-28">
+          {tab==="dashboard"&&<Dashboard lancamentos={lancamentos} boletos={boletos} notas={notas} dividas={dividas}/>}
+          {tab==="lancamentos"&&<Lancamentos data={lancamentos} setData={setLancamentos}/>}
+          {tab==="boletos"&&<Boletos data={boletos} setData={setBoletos}/>}
+          {tab==="notas"&&<Notas data={notas} setData={setNotas}/>}
+          {tab==="dividas"&&<Dividas data={dividas} setData={setDividas}/>}
+        </main>
+        <nav className="fixed bottom-0 left-0 right-0 z-40 px-2 py-2" style={{background:C.card,borderTop:`1px solid ${C.border}`,boxShadow:"0 -4px 16px rgba(15,23,42,0.06)"}}>
+          <div className="max-w-6xl mx-auto flex justify-around">
+            {tabs.map(({id,label,icon:Icon})=>{ const active=tab===id; return <button key={id} onClick={()=>setTab(id)} className="flex flex-col items-center gap-1 px-2 py-2 rounded-xl flex-1 min-w-0" style={{background:active?`${C.navy}10`:"transparent"}}><Icon size={20} style={{color:active?C.navy:C.inkMute}} strokeWidth={active?2.5:2}/><span className="text-[10px] font-semibold truncate w-full text-center" style={{color:active?C.navy:C.inkMute}}>{label}</span></button>; })}
+          </div>
+        </nav>
+      </div>;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>
