@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Operacional — JM Transportes</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #0B1F3A;
+      --blue:   #1A4B8C;
+      --sky:    #2D7DD2;
+      --orange: #F4802A;
+      --amber:  #FFC145;
+      --white:  #FFFFFF;
+      --off:    #F5F7FA;
+      --gray:   #6B7A8F;
+      --light:  #D6DDE8;
+      --dark:   #0A1628;
+      --sidebar-w: 240px;
+      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --radius: 10px;
+      --shadow: 0 2px 12px rgba(11,31,58,.09);
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--off);
+      color: var(--navy);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--navy);
+      min-height: 100vh;
+      position: fixed;
+      top: 0; left: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+    }
+
+    .sidebar__logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 24px 20px;
+      color: var(--white);
+      font-weight: 800;
+      font-size: 1.1rem;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .sidebar__logo-icon {
+      width: 36px; height: 36px;
+      background: var(--orange);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+    }
+
+    .sidebar__nav {
+      flex: 1;
+      padding: 16px 0;
+    }
+
+    .sidebar__section-label {
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: rgba(255,255,255,.25);
+      padding: 16px 20px 8px;
+    }
+
+    .sidebar__link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 20px;
+      color: rgba(255,255,255,.6);
+      font-size: .88rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .18s;
+      border-left: 3px solid transparent;
+      text-decoration: none;
+    }
+
+    .sidebar__link:hover {
+      color: var(--white);
+      background: rgba(255,255,255,.05);
+    }
+
+    .sidebar__link.active {
+      color: var(--white);
+      background: rgba(244,128,42,.12);
+      border-left-color: var(--orange);
+    }
+
+    .sidebar__link-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+    .sidebar__badge {
+      margin-left: auto;
+      background: var(--orange);
+      color: var(--white);
+      font-size: .65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 99px;
+    }
+
+    .sidebar__footer {
+      padding: 20px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+
+    .sidebar__user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar__avatar {
+      width: 36px; height: 36px;
+      background: var(--blue);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+    }
+
+    .sidebar__user-name { font-size: .85rem; font-weight: 600; color: var(--white); }
+    .sidebar__user-role { font-size: .72rem; color: rgba(255,255,255,.4); }
+
+    /* ── MAIN ── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--white);
+      border-bottom: 1px solid var(--light);
+      padding: 0 28px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .topbar__left h1 { font-size: 1.1rem; font-weight: 700; color: var(--navy); }
+    .topbar__left p  { font-size: .78rem; color: var(--gray); }
+
+    .topbar__right { display: flex; align-items: center; gap: 16px; }
+
+    .topbar__search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--off);
+      border: 1.5px solid var(--light);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: .85rem;
+      color: var(--gray);
+      width: 220px;
+    }
+
+    .topbar__btn {
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      border: 1.5px solid var(--light);
+      background: var(--white);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background .18s;
+      position: relative;
+    }
+    .topbar__btn:hover { background: var(--off); }
+
+    .notif-dot {
+      position: absolute;
+      top: 6px; right: 6px;
+      width: 8px; height: 8px;
+      background: var(--orange);
+      border-radius: 50%;
+      border: 2px solid var(--white);
+    }
+
+    /* ── PAGE CONTENT ── */
+    .page { padding: 28px; display: flex; flex-direction: column; gap: 24px; }
+
+    /* ── TWO-COL LAYOUT ── */
+    .two-col { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--light);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card__header {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card__title {
+      font-size: .92rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .card__action {
+      font-size: .78rem;
+      color: var(--sky);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .card__action:hover { text-decoration: underline; }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead tr { background: var(--off); }
+
+    th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: var(--gray);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 13px 16px;
+      font-size: .85rem;
+      color: var(--navy);
+      border-bottom: 1px solid var(--off);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafbfd; }
+
+    .td-bold { font-weight: 700; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: .72rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge--green  { background: rgba(34,197,94,.1);  color: #16a34a; }
+    .badge--orange { background: rgba(244,128,42,.12); color: #c05c10; }
+    .badge--blue   { background: rgba(45,125,210,.12); color: #1d5fad; }
+    .badge--red    { background: rgba(239,68,68,.1);   color: #b91c1c; }
+    .badge--gray   { background: rgba(107,122,143,.1); color: var(--gray); }
+
+    /* ── MINI MAP PLACEHOLDER ── */
+    .mini-map {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+      height: 200px;
+      border-radius: 10px;
+      margin: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mini-map::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .map-dot {
+      position: absolute;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--orange);
+      animation: blink 1.8s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .4; transform: scale(1.5); }
+    }
+
+    .map-dot:nth-child(1) { top: 25%; left: 35%; animation-delay: 0s; }
+    .map-dot:nth-child(2) { top: 50%; left: 55%; animation-delay: .4s; }
+    .map-dot:nth-child(3) { top: 65%; left: 25%; animation-delay: .8s; }
+    .map-dot:nth-child(4) { top: 30%; left: 70%; animation-delay: 1.2s; }
+
+    .map-label {
+      position: absolute;
+      bottom: 12px; left: 12px;
+      background: rgba(0,0,0,.4);
+      color: var(--white);
+      font-size: .7rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ── FLEET LIST ── */
+    .fleet-list { padding: 4px 0; }
+
+    .fleet-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 13px 22px;
+      border-bottom: 1px solid var(--off);
+      transition: background .15s;
+      cursor: default;
+    }
+
+    .fleet-item:last-child { border-bottom: none; }
+    .fleet-item:hover { background: var(--off); }
+
+    .fleet-item__icon {
+      width: 38px; height: 38px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .fleet-item__plate {
+      font-size: .88rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .fleet-item__driver {
+      font-size: .75rem;
+      color: var(--gray);
+      margin-top: 1px;
+    }
+
+    .fleet-item__right {
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .fleet-item__route {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    .fleet-item__eta {
+      font-size: .72rem;
+      color: var(--gray);
+      margin-top: 1px;
+    }
+
+    /* ── SOCORRO PANEL ── */
+    .socorro-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .socorro-card {
+      background: var(--white);
+      border: 1px solid var(--light);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .socorro-card--alert {
+      border-color: rgba(239,68,68,.3);
+      background: rgba(239,68,68,.03);
+    }
+
+    .socorro-card--active {
+      border-color: rgba(244,128,42,.3);
+      background: rgba(244,128,42,.03);
+    }
+
+    .socorro-card__top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .socorro-card__icon { font-size: 1.6rem; }
+
+    .socorro-card__title {
+      font-size: .88rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+
+    .socorro-card__detail {
+      font-size: .78rem;
+      color: var(--gray);
+      line-height: 1.5;
+    }
+
+    .socorro-card__footer {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .socorro-card__time {
+      font-size: .72rem;
+      color: var(--gray);
+    }
+
+    .btn-sm {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: .75rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: all .18s;
+    }
+
+    .btn-sm--primary { background: var(--orange); color: var(--white); }
+    .btn-sm--primary:hover { background: #e0701e; }
+
+    .btn-sm--outline {
+      background: transparent;
+      border: 1.5px solid var(--light);
+      color: var(--navy);
+    }
+    .btn-sm--outline:hover { border-color: var(--gray); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1100px) {
+      .two-col        { grid-template-columns: 1fr; }
+      .socorro-grid   { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 700px) {
+      .sidebar { transform: translateX(-100%); }
+      .main    { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar__logo">
+    <div class="sidebar__logo-icon">🚛</div>
+    JM Transportes
+  </div>
+
+  <nav class="sidebar__nav">
+    <div class="sidebar__section-label">Principal</div>
+    <a class="sidebar__link active" href="#">
+      <span class="sidebar__link-icon">📊</span> Dashboard
+    </a>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">📦</span> Fretes
+      <span class="sidebar__badge">12</span>
+    </a>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">🚛</span> Frota
+    </a>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">👷</span> Motoristas
+    </a>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">📍</span> Rastreamento
+    </a>
+
+    <div class="sidebar__section-label">Serviços</div>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">🔧</span> Auto Socorro
+      <span class="sidebar__badge">3</span>
+    </a>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">🗺️</span> Roteirização
+    </a>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">🏭</span> Armazenagem
+    </a>
+
+    <div class="sidebar__section-label">Gestão</div>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">📄</span> Documentos
+    </a>
+    <a class="sidebar__link" href="index.html">
+      <span class="sidebar__link-icon">💰</span> Financeiro
+    </a>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">📈</span> Relatórios
+    </a>
+    <a class="sidebar__link" href="#">
+      <span class="sidebar__link-icon">⚙️</span> Configurações
+    </a>
+  </nav>
+
+  <div class="sidebar__footer">
+    <div class="sidebar__user">
+      <div class="sidebar__avatar">👨‍💼</div>
+      <div>
+        <div class="sidebar__user-name">Marcos Vieira</div>
+        <div class="sidebar__user-role">Supervisor de Operações</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar__left">
+      <h1>Dashboard Operacional</h1>
+      <p id="topbar-date">Carregando...</p>
+    </div>
+    <div class="topbar__right">
+      <div class="topbar__search">🔍 &nbsp;Buscar placa ou NF...</div>
+      <button class="topbar__btn" title="Notificações">
+        🔔
+        <div class="notif-dot"></div>
+      </button>
+      <button class="topbar__btn" title="Financeiro">
+        <a href="index.html" style="text-decoration:none;">💰</a>
+      </button>
+    </div>
+  </div>
+
+  <!-- PAGE -->
+  <div class="page">
+
+    <!-- ROW 1: SHIPMENTS TABLE + MINI MAP -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card__header">
+          <span class="card__title">Fretes em andamento</span>
+          <span class="card__action">Ver todos →</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>NF / Carga</th>
+                <th>Origem → Destino</th>
+                <th>Motorista</th>
+                <th>Placa</th>
+                <th>ETA</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="td-bold">NF-0048321</td>
+                <td>São Paulo → Rio de Janeiro</td>
+                <td>Roberto Santos</td>
+                <td>ABC-1D34</td>
+                <td>14:30</td>
+                <td><span class="badge badge--green">● Em rota</span></td>
+              </tr>
+              <tr>
+                <td class="td-bold">NF-0048299</td>
+                <td>Campinas → Belo Horizonte</td>
+                <td>Fábio Lemos</td>
+                <td>DEF-2E56</td>
+                <td>16:45</td>
+                <td><span class="badge badge--green">● Em rota</span></td>
+              </tr>
+              <tr>
+                <td class="td-bold">NF-0048277</td>
+                <td>Curitiba → São Paulo</td>
+                <td>Juliana Costa</td>
+                <td>GHI-3F78</td>
+                <td>18:00</td>
+                <td><span class="badge badge--orange">● Atraso</span></td>
+              </tr>
+              <tr>
+                <td class="td-bold">NF-0048254</td>
+                <td>Porto Alegre → Florianópolis</td>
+                <td>André Mota</td>
+                <td>JKL-4G90</td>
+                <td>11:15</td>
+                <td><span class="badge badge--blue">● Coletando</span></td>
+              </tr>
+              <tr>
+                <td class="td-bold">NF-0048240</td>
+                <td>Salvador → Recife</td>
+                <td>Patrícia Lima</td>
+                <td>MNO-5H12</td>
+                <td>22:00</td>
+                <td><span class="badge badge--green">● Em rota</span></td>
+              </tr>
+              <tr>
+                <td class="td-bold">NF-0048215</td>
+                <td>Fortaleza → Natal</td>
+                <td>Carlos Barros</td>
+                <td>PQR-6I34</td>
+                <td>09:50</td>
+                <td><span class="badge badge--gray">● Aguardando</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header">
+          <span class="card__title">Mapa de rastreamento</span>
+          <span class="card__action">Expandir</span>
+        </div>
+        <div class="mini-map">
+          <div class="map-dot"></div>
+          <div class="map-dot"></div>
+          <div class="map-dot"></div>
+          <div class="map-dot"></div>
+          <span style="font-size:3.5rem;z-index:1;opacity:.6;">🗺️</span>
+          <div class="map-label">47 veículos ativos</div>
+        </div>
+
+        <!-- FLEET LIST -->
+        <div class="fleet-list">
+          <div class="fleet-item">
+            <div class="fleet-item__icon" style="background:rgba(34,197,94,.1);">🚛</div>
+            <div>
+              <div class="fleet-item__plate">ABC-1D34</div>
+              <div class="fleet-item__driver">R. Santos</div>
+            </div>
+            <div class="fleet-item__right">
+              <div class="fleet-item__route">SP → RJ</div>
+              <div class="fleet-item__eta">ETA 14:30</div>
+            </div>
+          </div>
+          <div class="fleet-item">
+            <div class="fleet-item__icon" style="background:rgba(34,197,94,.1);">🚚</div>
+            <div>
+              <div class="fleet-item__plate">DEF-2E56</div>
+              <div class="fleet-item__driver">F. Lemos</div>
+            </div>
+            <div class="fleet-item__right">
+              <div class="fleet-item__route">CAM → BH</div>
+              <div class="fleet-item__eta">ETA 16:45</div>
+            </div>
+          </div>
+          <div class="fleet-item">
+            <div class="fleet-item__icon" style="background:rgba(244,128,42,.1);">🚛</div>
+            <div>
+              <div class="fleet-item__plate">GHI-3F78</div>
+              <div class="fleet-item__driver">J. Costa</div>
+            </div>
+            <div class="fleet-item__right">
+              <div class="fleet-item__route">CWB → SP</div>
+              <div class="fleet-item__eta" style="color:var(--orange);">Atraso 45min</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRÓXIMOS COMPROMISSOS -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--blue);">Agenda comercial</div>
+          <div style="font-size:1.1rem;font-weight:700;color:var(--navy);">Próximos compromissos</div>
+        </div>
+        <button class="btn-sm btn-sm--outline">+ Novo compromisso</button>
+      </div>
+
+      <div class="socorro-grid">
+        <div class="socorro-card" style="border-color:rgba(45,125,210,.3);background:rgba(45,125,210,.03);">
+          <div class="socorro-card__top">
+            <div>
+              <div class="socorro-card__title">Reunião — Lucas Ferriani</div>
+              <div class="socorro-card__detail">
+                Comunidade SerLogística · Gerente Novos Negócios<br>
+                📞 +55 16 98236-9999<br>
+                ✈️ Chega POA 30/06 14:30 (Viracopos → POA)<br>
+                ↩️ Retorno 03/07 05:00
+              </div>
+            </div>
+            <span class="socorro-card__icon">🤝</span>
+          </div>
+          <div class="socorro-card__footer">
+            <div>
+              <div class="socorro-card__time">Terça-feira · 30/06 às 14:30</div>
+              <span class="badge badge--blue">O.S. 222177</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-sm btn-sm--outline">Detalhes</button>
+              <button class="btn-sm btn-sm--primary">Confirmar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="socorro-card" style="border-color:rgba(45,125,210,.3);background:rgba(45,125,210,.03);">
+          <div class="socorro-card__top">
+            <div>
+              <div class="socorro-card__title">Recepção — Joseph Grunbaum</div>
+              <div class="socorro-card__detail">
+                Agência: Main Street Travel (Monsey, NY)<br>
+                ✈️ Delta DL 7415 (Latam LA2422)<br>
+                Rota: Omaha → Atlanta → Lima → POA<br>
+                🛬 Chegada POA · Salgado Filho · Terminal 1<br>
+                ↩️ Retorno 21/06/2027
+              </div>
+            </div>
+            <span class="socorro-card__icon">🛬</span>
+          </div>
+          <div class="socorro-card__footer">
+            <div>
+              <div class="socorro-card__time">Segunda-feira · 29/06 às 06:20</div>
+              <span class="badge badge--blue">Booking CWW988</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-sm btn-sm--outline">Detalhes</button>
+              <button class="btn-sm btn-sm--primary">Designar motorista</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="socorro-card" style="border-color:rgba(45,125,210,.3);background:rgba(45,125,210,.03);">
+          <div class="socorro-card__top">
+            <div>
+              <div class="socorro-card__title">Recepção — Yehoshua Markovich</div>
+              <div class="socorro-card__detail">
+                Agência: Main Street Travel (Monsey, NY)<br>
+                ✈️ United UA 7326 (Azul AD2914)<br>
+                Rota: Newark → Guarulhos → POA<br>
+                🛬 Chegada POA · Salgado Filho · Terminal 1<br>
+                ↩️ Retorno 20-21/06/2027
+              </div>
+            </div>
+            <span class="socorro-card__icon">🛬</span>
+          </div>
+          <div class="socorro-card__footer">
+            <div>
+              <div class="socorro-card__time">Segunda-feira · 29/06 às 16:25</div>
+              <span class="badge badge--blue">Booking CX2Y6H</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-sm btn-sm--outline">Detalhes</button>
+              <button class="btn-sm btn-sm--primary">Designar motorista</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTO SOCORRO PANEL -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);">Auto Socorro</div>
+          <div style="font-size:1.1rem;font-weight:700;color:var(--navy);">Central 24h — Ocorrências abertas</div>
+        </div>
+        <button class="btn-sm btn-sm--primary">🔧 Nova Ocorrência</button>
+      </div>
+
+      <div class="socorro-grid">
+        <div class="socorro-card socorro-card--alert">
+          <div class="socorro-card__top">
+            <div>
+              <div class="socorro-card__title">Pane mecânica — Motor</div>
+              <div class="socorro-card__detail">Placa TUV-7J56 · Rodovia Dutra, km 148<br>Motorista: Eduardo Pires</div>
+            </div>
+            <span class="socorro-card__icon">🚨</span>
+          </div>
+          <div class="socorro-card__footer">
+            <div>
+              <div class="socorro-card__time">Aberto há 23 min</div>
+              <span class="badge badge--red">Urgente</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-sm btn-sm--outline">Detalhes</button>
+              <button class="btn-sm btn-sm--primary">Despachar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="socorro-card socorro-card--active">
+          <div class="socorro-card__top">
+            <div>
+              <div class="socorro-card__title">Pane seca — Combustível</div>
+              <div class="socorro-card__detail">Placa WXY-8K78 · BR-116, km 312<br>Motorista: Simone Alves</div>
+            </div>
+            <span class="socorro-card__icon">⛽</span>
+          </div>
+          <div class="socorro-card__footer">
+            <div>
+              <div class="socorro-card__time">Guincho a caminho · 18 min</div>
+              <span class="badge badge--orange">Em atendimento</span>
+            </div>
+            <button class="btn-sm btn-sm--outline">Acompanhar</button>
+          </div>
+        </div>
+
+        <div class="socorro-card">
+          <div class="socorro-card__top">
+            <div>
+              <div class="socorro-card__title">Pneu furado — Câmbio</div>
+              <div class="socorro-card__detail">Placa ZAB-9L90 · Anhanguera, km 87<br>Motorista: Thiago Neves</div>
+            </div>
+            <span class="socorro-card__icon">🔧</span>
+          </div>
+          <div class="socorro-card__footer">
+            <div>
+              <div class="socorro-card__time">Resolvido · há 5 min</div>
+              <span class="badge badge--green">Resolvido</span>
+            </div>
+            <button class="btn-sm btn-sm--outline">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page -->
+</div><!-- /main -->
+
+<script>
+  (function () {
+    const el = document.getElementById('topbar-date');
+    if (!el) return;
+    const now = new Date();
+    const weekdays = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+    const months   = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+    const h = now.getHours();
+    const turno = h < 12 ? 'Manhã' : h < 18 ? 'Tarde' : 'Noite';
+    el.textContent = `${weekdays[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]} de ${now.getFullYear()} · Turno: ${turno}`;
+  })();
+</script>
+
+</body>
+</html>
