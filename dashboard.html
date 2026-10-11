@@ -2,21 +2,22 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#1E3A6F" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1F4E79" />
   <title>JM Transportes — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.js"></script>
-  <script src="https://unpkg.com/lucide-react@0.383.0/dist/umd/lucide-react.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body { background: #F5F7FB; overscroll-behavior-y: none; }
-    body { padding-top: env(safe-area-inset-top); }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; background: #F6F5F1; overscroll-behavior-y: none; }
+    body { color: #1C1F24; font-family: Barlow, "Arial Narrow", Arial, sans-serif; }
+    a { color: #1F5FBF; } a:hover { color: #174A95; }
+    button { font-family: inherit; }
+    .mono { font-family: "IBM Plex Mono", Consolas, monospace; }
+    .num { font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
@@ -24,40 +25,48 @@
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
-    const {
-      BarChart, Bar, PieChart, Pie, Cell,
-      XAxis, YAxis, CartesianGrid, Tooltip,
-      ResponsiveContainer, Legend
-    } = Recharts;
-    const {
-      TrendingUp, TrendingDown, Wallet, FileText,
-      AlertTriangle, Calendar, ChevronRight, ArrowLeft,
-      CheckCircle2
-    } = LucideReact;
 
+    // Paleta do design system "JM Transportes" (artifact Controle de Faturamento)
     const C = {
-      bg: "#F5F7FB", card: "#FFFFFF", navy: "#1E3A6F", navyDark: "#142850",
-      ink: "#0F172A", inkSoft: "#475569", inkMute: "#94A3B8",
-      primary: "#FF6B35", green: "#10B981", red: "#EF4444",
-      amber: "#F59E0B", purple: "#8B5CF6", cyan: "#06B6D4",
-      border: "#E2E8F0", borderSoft: "#F1F5F9",
+      bg: "#F6F5F1", card: "#FFFFFF", navy: "#1F4E79", navySoft: "#D6E2EE",
+      amber: "#F2B705", tint: "#FFF4CC",
+      ink: "#1C1F24", muted: "#5B616B",
+      border: "#D9D6CC", borderSoft: "#ECEAE3",
+      ok: "#1E7A46", warn: "#B45309", danger: "#B42318",
     };
-    const PIE_COLORS = ["#1E3A6F","#FF6B35","#10B981","#8B5CF6","#06B6D4","#F59E0B","#EC4899","#64748B"];
 
     const fmtBRL = v => (Number(v)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-    const fmtBRLc = v => { const n=Number(v)||0; return Math.abs(n)>=1000?`R$ ${(n/1000).toFixed(1)}k`:fmtBRL(n); };
-    const fmtDateFull = iso => { if(!iso) return "—"; const[y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; };
-    const todayISO = () => new Date().toISOString().slice(0,10);
+    const fmtBRLc = v => { const n=Number(v)||0; return Math.abs(n)>=1000?`R$ ${(n/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})} mil`:fmtBRL(n); };
+    const fmtData = iso => { if(!iso) return "—"; const[y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; };
+    const pad = n => String(n).padStart(2,"0");
+    const isoLocal = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const todayISO = () => isoLocal(new Date());
     const mesAtual = () => todayISO().slice(0,7);
     const isVencido = d => d && d < todayISO();
-    const diasAteVenc = d => {
+    const diasAte = d => {
       if(!d) return null;
-      return Math.ceil((new Date(d+'T00:00:00') - new Date()) / 86400000);
+      const [y,m,dd] = d.split("-").map(Number);
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      return Math.round((new Date(y,m-1,dd) - hoje) / 86400000);
     };
+    const plural = (n, s, p) => `${n} ${n===1?s:p}`;
+    const soma = (arr, k="valor") => arr.reduce((s,x) => s + (Number(x[k])||0), 0);
 
     function readLS(key) {
       try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : []; } catch { return []; }
     }
+
+    function prazoInfo(venc) {
+      const dias = diasAte(venc);
+      if (dias === null) return { txt: "Sem vencimento", cor: C.muted };
+      if (dias < 0) return { txt: plural(-dias, "dia de atraso", "dias de atraso"), cor: C.danger };
+      if (dias === 0) return { txt: "Vence hoje", cor: C.warn };
+      if (dias <= 3) return { txt: `Vence em ${plural(dias, "dia", "dias")}`, cor: C.warn };
+      return { txt: `Vence em ${plural(dias, "dia", "dias")}`, cor: C.muted };
+    }
+
+    const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 };
+    const h2 = { margin: 0, fontSize: 20, lineHeight: "26px", fontWeight: 600 };
 
     function App() {
       const [lancamentos, setLancamentos] = useState(() => readLS("jm:lancamentos"));
@@ -73,417 +82,336 @@
           setNotas(readLS("jm:notas"));
           setDividas(readLS("jm:dividas"));
         };
+        const onVis = () => { if (document.visibilityState === "visible") sync(); };
         window.addEventListener("focus", sync);
-        return () => window.removeEventListener("focus", sync);
+        window.addEventListener("storage", sync);
+        document.addEventListener("visibilitychange", onVis);
+        return () => {
+          window.removeEventListener("focus", sync);
+          window.removeEventListener("storage", sync);
+          document.removeEventListener("visibilitychange", onVis);
+        };
       }, []);
 
       const mes = mesAtual();
+      const mesLabel = new Date().toLocaleDateString("pt-BR",{month:"long", year:"numeric"}).replace(/^./, c => c.toUpperCase());
 
-      const receitasMes = useMemo(() =>
-        lancamentos.filter(l => l.tipo === "Receita" && l.data && l.data.startsWith(mes))
-          .reduce((s, l) => s + (Number(l.valor)||0), 0)
-      , [lancamentos, mes]);
-
-      const despesasMes = useMemo(() =>
-        lancamentos.filter(l => l.tipo === "Despesa" && l.data && l.data.startsWith(mes))
-          .reduce((s, l) => s + (Number(l.valor)||0), 0)
-      , [lancamentos, mes]);
-
+      const receitasMesL = lancamentos.filter(l => l.tipo==="Receita" && l.data && l.data.startsWith(mes));
+      const despesasMesL = lancamentos.filter(l => l.tipo==="Despesa" && l.data && l.data.startsWith(mes));
+      const receitasMes = soma(receitasMesL);
+      const despesasMes = soma(despesasMesL);
       const resultadoMes = receitasMes - despesasMes;
 
-      const totalAReceber = useMemo(() =>
-        notas.filter(n => n.status === "A Receber")
-          .reduce((s, n) => s + (Number(n.valor)||0), 0)
-      , [notas]);
+      const notasPend = notas.filter(n => n.status !== "Recebido");
+      const notasVenc = notasPend.filter(n => isVencido(n.vencimento));
 
       const compromissos = useMemo(() => {
-        const b = boletos
-          .filter(b => b.status === "A Pagar")
-          .map(b => ({
-            id: b.id, tipo: "Boleto", descricao: b.fornecedor,
-            categoria: b.categoria, valor: Number(b.valor)||0,
-            vencimento: b.vencimento, vencido: isVencido(b.vencimento)
-          }));
-        const d = dividas
-          .filter(d => d.status === "Ativo")
-          .map(d => ({
-            id: d.id, tipo: "Dívida", descricao: d.credor,
-            categoria: d.tipo || "Financiamento",
-            valor: Number(d.valorParcela)||0,
-            vencimento: d.proxVenc, vencido: isVencido(d.proxVenc)
-          }));
-        return [...b, ...d].sort((a,b) => (a.vencimento||"9999") < (b.vencimento||"9999") ? -1 : 1);
+        const b = boletos.filter(b => b.status !== "Pago").map(b => ({
+          id: b.id, tipo: "Boleto", descricao: b.fornecedor, categoria: b.categoria,
+          valor: Number(b.valor)||0, vencimento: b.vencimento,
+        }));
+        const d = dividas.filter(d => d.status === "Ativo").map(d => ({
+          id: d.id, tipo: "Dívida", descricao: d.credor, categoria: d.tipo || "Financiamento",
+          valor: Number(d.valorParcela)||0, vencimento: d.proxVenc,
+          parcela: `${d.parcelaPaga||0}/${d.parcelaTotal||0}`,
+        }));
+        return [...b, ...d].sort((a,b) => (a.vencimento||"9999").localeCompare(b.vencimento||"9999"));
       }, [boletos, dividas]);
+      const totalAP = soma(compromissos);
+      const vencidosAP = compromissos.filter(c => isVencido(c.vencimento));
 
-      const totalAP = compromissos.reduce((s,c) => s + c.valor, 0);
-      const vencidosAP = compromissos.filter(c => c.vencido);
-
-      const recCat = useMemo(() => {
-        const map = {};
-        lancamentos
-          .filter(l => l.tipo === "Receita" && l.data && l.data.startsWith(mes))
-          .forEach(l => { map[l.categoria] = (map[l.categoria]||0) + (Number(l.valor)||0); });
-        return Object.entries(map).map(([name, value]) => ({ name, value }))
-          .sort((a,b) => b.value - a.value);
-      }, [lancamentos, mes]);
+      const meses = useMemo(() => {
+        const out = [];
+        const hoje = new Date();
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+          const m = isoLocal(d).slice(0,7);
+          const rec = soma(lancamentos.filter(l => l.tipo==="Receita" && l.data && l.data.startsWith(m)));
+          const desp = soma(lancamentos.filter(l => l.tipo==="Despesa" && l.data && l.data.startsWith(m)));
+          out.push({ m, rot: d.toLocaleDateString("pt-BR",{month:"short"}).replace(".",""), rec, desp, atual: i===0 });
+        }
+        return out;
+      }, [lancamentos]);
 
       const despCat = useMemo(() => {
         const map = {};
-        lancamentos
-          .filter(l => l.tipo === "Despesa" && l.data && l.data.startsWith(mes))
-          .forEach(l => { map[l.categoria] = (map[l.categoria]||0) + (Number(l.valor)||0); });
-        return Object.entries(map).map(([name, value]) => ({ name, value }))
-          .sort((a,b) => b.value - a.value);
+        despesasMesL.forEach(l => { const k = l.categoria || "Outros"; map[k] = (map[k]||0) + (Number(l.valor)||0); });
+        return Object.entries(map).map(([nome, valor]) => ({ nome, valor })).sort((a,b) => b.valor - a.valor);
       }, [lancamentos, mes]);
 
-      const evolucao = useMemo(() => {
-        const meses = [];
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
-          const m = d.toISOString().slice(0,7);
-          const label = d.toLocaleDateString("pt-BR",{month:"short"}).replace(".","");
-          const rec = lancamentos.filter(l => l.tipo==="Receita" && l.data && l.data.startsWith(m)).reduce((s,l) => s+(Number(l.valor)||0), 0);
-          const desp = lancamentos.filter(l => l.tipo==="Despesa" && l.data && l.data.startsWith(m)).reduce((s,l) => s+(Number(l.valor)||0), 0);
-          meses.push({ label, rec, desp, result: rec-desp });
-        }
-        return meses;
-      }, [lancamentos]);
+      const grupos = useMemo(() => {
+        const map = {};
+        notasPend.forEach(n => { const c = n.cliente || "Sem cliente"; (map[c] = map[c] || []).push(n); });
+        return Object.entries(map).map(([cliente, lista]) => ({
+          cliente, total: soma(lista),
+          notas: lista.slice().sort((a,b) => (a.vencimento||"9999").localeCompare(b.vencimento||"9999")),
+        })).sort((a,b) => b.total - a.total);
+      }, [notas]);
 
-      const notasAReceber = useMemo(() =>
-        notas.filter(n => n.status === "A Receber")
-          .sort((a,b) => (a.vencimento||"9999") < (b.vencimento||"9999") ? -1 : 1)
-      , [notas]);
-
-      const mesLabel = new Date().toLocaleDateString("pt-BR",{month:"long", year:"numeric"});
+      const kpis = [
+        { titulo: "Receitas do mês", valor: fmtBRL(receitasMes), sub: plural(receitasMesL.length, "lançamento", "lançamentos"), cor: C.navy },
+        { titulo: "A receber", valor: fmtBRL(soma(notasPend)), sub: plural(notasPend.length, "nota pendente", "notas pendentes"), cor: C.warn },
+        { titulo: "Vencido", valor: fmtBRL(soma(notasVenc)), sub: plural(notasVenc.length, "nota em atraso", "notas em atraso"), cor: C.danger },
+        { titulo: "Resultado do mês", valor: fmtBRL(resultadoMes), sub: `Despesas ${fmtBRL(despesasMes)}`, cor: resultadoMes >= 0 ? C.ok : C.danger },
+      ];
 
       const semDados = !lancamentos.length && !boletos.length && !notas.length && !dividas.length;
+      const titulos = { resumo: "Dashboard", receber: "A receber", pagar: "A pagar", evolucao: "Evolução" };
 
       return (
-        <div style={{background:C.bg, minHeight:"100vh"}}>
-          {/* Header */}
-          <div style={{background:C.navy}} className="sticky top-0 z-40">
-            <div className="px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div style={{background:"rgba(255,255,255,0.15)", borderRadius:10, padding:"6px 10px"}}>
-                  <span style={{color:"#fff", fontWeight:800, fontSize:15}}>JM</span>
-                </div>
-                <div>
-                  <div style={{color:"#fff", fontWeight:700, fontSize:15}}>Dashboard Financeiro</div>
-                  <div style={{color:"rgba(255,255,255,0.6)", fontSize:11}}>{mesLabel}</div>
-                </div>
+        <div style={{minHeight:"100vh", display:"flex", flexDirection:"column", background:C.bg}}>
+          <header style={{background:C.navy, color:"#fff", paddingTop:"env(safe-area-inset-top)"}}>
+            <div style={{maxWidth:560, margin:"0 auto", padding:"16px 16px 14px", display:"flex", justifyContent:"space-between", alignItems:"flex-end", gap:12}}>
+              <div style={{display:"flex", flexDirection:"column", gap:2, minWidth:0}}>
+                <span style={{fontSize:13, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:C.navySoft}}>JM Transportes e Auto Socorro</span>
+                <h1 style={{margin:0, fontSize:28, lineHeight:"34px", fontWeight:700}}>{titulos[tab]}</h1>
+                <span style={{fontSize:14, color:C.navySoft}}>{mesLabel}</span>
               </div>
-              <a href="index.html" className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
-                style={{background:"rgba(255,255,255,0.12)", color:"rgba(255,255,255,0.85)", fontSize:12, fontWeight:600, textDecoration:"none"}}>
-                <ArrowLeft size={13}/> Financeiro
+              <a href="index.html" style={{flexShrink:0, minHeight:44, padding:"0 14px", display:"inline-flex", alignItems:"center", gap:6, borderRadius:4, border:"1px solid rgba(255,255,255,0.35)", color:"#fff", textDecoration:"none", fontSize:15, fontWeight:600}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                Financeiro
               </a>
             </div>
-            <div className="flex px-4 pb-1 gap-1">
-              {[["resumo","Resumo"],["compromissos","A Pagar"],["receitas","Receitas"],["evolucao","Evolução"]].map(([k,l]) => (
-                <button key={k} onClick={() => setTab(k)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{
-                    background: tab===k ? "rgba(255,255,255,0.2)" : "transparent",
-                    color: tab===k ? "#fff" : "rgba(255,255,255,0.5)"
-                  }}>{l}</button>
-              ))}
-            </div>
-          </div>
+            <div style={{height:4, background:C.amber}}></div>
+          </header>
 
-          <div className="px-4 py-4 max-w-2xl mx-auto" style={{paddingBottom:40}}>
+          <main style={{flex:"1 1 auto", width:"100%", maxWidth:560, margin:"0 auto", padding:"16px 16px 24px", display:"flex", flexDirection:"column", gap:16}}>
 
             {semDados && (
-              <div className="rounded-2xl p-8 text-center mt-4" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                <p className="font-bold" style={{color:C.ink}}>Nenhum dado ainda</p>
-                <p className="text-sm mt-1" style={{color:C.inkSoft}}>Lance boletos, notas e receitas no app Financeiro para visualizar o dashboard.</p>
-                <a href="index.html" className="inline-block mt-4 px-5 py-2.5 rounded-xl font-semibold text-sm"
-                  style={{background:C.navy, color:"#fff", textDecoration:"none"}}>Abrir Financeiro</a>
+              <div style={{...card, padding:"24px 16px", textAlign:"center", display:"flex", flexDirection:"column", gap:8, alignItems:"center"}}>
+                <p style={{margin:0, fontSize:17, fontWeight:700}}>Nenhum dado ainda</p>
+                <p style={{margin:0, fontSize:15, color:C.muted}}>Lance receitas, boletos e notas no app Financeiro para ver o painel.</p>
+                <a href="index.html" style={{marginTop:8, minHeight:44, padding:"0 18px", display:"inline-flex", alignItems:"center", borderRadius:4, background:C.navy, color:"#fff", textDecoration:"none", fontWeight:600}}>Abrir Financeiro</a>
               </div>
             )}
 
             {/* RESUMO */}
             {tab === "resumo" && !semDados && (
-              <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <KpiCard label="Receitas" value={receitasMes} color={C.green} icon={TrendingUp} />
-                  <KpiCard label="Despesas" value={despesasMes} color={C.red} icon={TrendingDown} />
-                  <KpiCard label="Resultado" value={resultadoMes} color={resultadoMes>=0?C.green:C.red} icon={Wallet} highlight />
-                  <KpiCard label="A Receber" value={totalAReceber} color={C.amber} icon={FileText} />
-                </div>
+              <section style={{display:"flex", flexDirection:"column", gap:16}}>
+                {(notasVenc.length > 0 || vencidosAP.length > 0) && (
+                  <div role="status" style={{background:C.tint, border:`1px solid ${C.amber}`, borderRadius:8, padding:"10px 12px", fontSize:15}}>
+                    {vencidosAP.length > 0 && <div><strong>{plural(vencidosAP.length, "conta vencida", "contas vencidas")}</strong> a pagar · {fmtBRL(soma(vencidosAP))}</div>}
+                    {notasVenc.length > 0 && <div><strong>{plural(notasVenc.length, "nota atrasada", "notas atrasadas")}</strong> a receber · {fmtBRL(soma(notasVenc))}</div>}
+                  </div>
+                )}
 
-                {vencidosAP.length > 0 && (
-                  <div className="rounded-2xl p-4 flex items-start gap-3"
-                    style={{background:`${C.red}10`, border:`1.5px solid ${C.red}30`}}>
-                    <AlertTriangle size={18} style={{color:C.red, flexShrink:0, marginTop:1}}/>
-                    <div>
-                      <p className="font-bold text-sm" style={{color:C.red}}>
-                        {vencidosAP.length} compromisso{vencidosAP.length>1?"s":""} vencido{vencidosAP.length>1?"s":""}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{color:C.red}}>{vencidosAP.map(v=>v.descricao).join(", ")}</p>
+                <div style={{display:"grid", gridTemplateColumns:"repeat(2, minmax(0, 1fr))", gap:12}}>
+                  {kpis.map(k => (
+                    <div key={k.titulo} style={{...card, padding:14, display:"flex", flexDirection:"column", gap:4}}>
+                      <span style={{fontSize:13, lineHeight:"18px", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em", color:C.muted}}>{k.titulo}</span>
+                      <span className="num" style={{fontSize:22, lineHeight:"28px", fontWeight:700, color:k.cor, overflowWrap:"anywhere"}}>{k.valor}</span>
+                      <span style={{fontSize:13, color:C.muted}}>{k.sub}</span>
                     </div>
-                  </div>
-                )}
-
-                <div className="rounded-2xl p-4 flex items-center justify-between"
-                  style={{background:C.card, border:`1px solid ${C.border}`}}>
-                  <div>
-                    <p className="text-xs font-semibold" style={{color:C.inkSoft}}>TOTAL A PAGAR</p>
-                    <p className="text-xl font-bold mt-0.5" style={{color:C.ink}}>{fmtBRL(totalAP)}</p>
-                    <p className="text-xs mt-0.5" style={{color:C.inkMute}}>{compromissos.length} pendência{compromissos.length!==1?"s":""}</p>
-                  </div>
-                  <button onClick={()=>setTab("compromissos")} className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold"
-                    style={{background:C.navy, color:"#fff"}}>
-                    Ver <ChevronRight size={13}/>
-                  </button>
+                  ))}
                 </div>
 
-                {recCat.length > 0 && (
-                  <div className="rounded-2xl p-4" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                    <p className="font-bold text-sm mb-3" style={{color:C.ink}}>Receitas por serviço</p>
-                    <ResponsiveContainer width="100%" height={Math.max(140, recCat.length*32)}>
-                      <BarChart data={recCat} layout="vertical" margin={{left:0,right:8,top:0,bottom:0}}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={C.border} horizontal={false}/>
-                        <XAxis type="number" tick={{fontSize:9,fill:C.inkMute}} tickFormatter={v=>fmtBRLc(v)}/>
-                        <YAxis dataKey="name" type="category" tick={{fontSize:10,fill:C.inkSoft}} width={95}/>
-                        <Tooltip formatter={v=>fmtBRL(v)} contentStyle={{borderRadius:10,border:`1px solid ${C.border}`,fontSize:12}}/>
-                        <Bar dataKey="value" name="Receita" fill={C.green} radius={[0,6,6,0]}/>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                <button type="button" onClick={() => setTab("pagar")} style={{...card, width:"100%", padding:"14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left", color:C.ink}}>
+                  <span style={{display:"flex", flexDirection:"column", gap:2}}>
+                    <span style={{fontSize:13, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em", color:C.muted}}>Total a pagar</span>
+                    <span className="num" style={{fontSize:22, fontWeight:700}}>{fmtBRL(totalAP)}</span>
+                    <span style={{fontSize:13, color:C.muted}}>{plural(compromissos.length, "compromisso em aberto", "compromissos em aberto")}</span>
+                  </span>
+                  <span style={{minHeight:44, padding:"0 14px", display:"inline-flex", alignItems:"center", borderRadius:4, border:`1px solid ${C.navy}`, color:C.navy, fontSize:15, fontWeight:600}}>Ver</span>
+                </button>
+
+                <FaturamentoMensal meses={meses} />
 
                 {despCat.length > 0 && (
-                  <div className="rounded-2xl p-4" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                    <p className="font-bold text-sm mb-3" style={{color:C.ink}}>Despesas por categoria</p>
-                    <div className="flex gap-4 items-center">
-                      <ResponsiveContainer width="50%" height={140}>
-                        <PieChart>
-                          <Pie data={despCat} cx="50%" cy="50%" innerRadius={38} outerRadius={62}
-                            dataKey="value" paddingAngle={2}>
-                            {despCat.map((_,i) => <Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
-                          </Pie>
-                          <Tooltip formatter={v=>fmtBRL(v)} contentStyle={{borderRadius:10,fontSize:12}}/>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="flex-1 flex flex-col gap-1.5">
-                        {despCat.slice(0,5).map((d,i) => (
-                          <div key={i} className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <div style={{width:8,height:8,borderRadius:2,background:PIE_COLORS[i%PIE_COLORS.length],flexShrink:0}}/>
-                              <span className="text-xs truncate" style={{color:C.inkSoft}}>{d.name}</span>
-                            </div>
-                            <span className="text-xs font-semibold whitespace-nowrap" style={{color:C.ink}}>{fmtBRLc(d.value)}</span>
-                          </div>
-                        ))}
-                      </div>
+                  <div style={{...card, padding:16, display:"flex", flexDirection:"column", gap:12}}>
+                    <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
+                      <h2 style={h2}>Despesas por categoria</h2>
+                      <span style={{fontSize:13, color:C.muted}}>mês atual</span>
                     </div>
+                    {despCat.slice(0,6).map(d => (
+                      <div key={d.nome} style={{display:"flex", flexDirection:"column", gap:4}}>
+                        <div style={{display:"flex", justifyContent:"space-between", gap:8, fontSize:14}}>
+                          <span style={{minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{d.nome}</span>
+                          <span className="num" style={{fontWeight:600, whiteSpace:"nowrap"}}>{fmtBRL(d.valor)}</span>
+                        </div>
+                        <div style={{height:8, background:C.borderSoft, borderRadius:4, overflow:"hidden"}}>
+                          <div style={{width:`${Math.max(2, d.valor / despCat[0].valor * 100)}%`, height:"100%", background:C.navy}}></div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </div>
+              </section>
             )}
 
-            {/* COMPROMISSOS */}
-            {tab === "compromissos" && (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-sm" style={{color:C.ink}}>
-                    {compromissos.length} compromisso{compromissos.length!==1?"s":""} em aberto
-                  </p>
-                  {compromissos.length > 0 && <p className="font-bold text-sm" style={{color:C.red}}>{fmtBRL(totalAP)}</p>}
+            {/* A RECEBER */}
+            {tab === "receber" && (
+              <section style={{display:"flex", flexDirection:"column", gap:12}}>
+                <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
+                  <span style={{fontSize:15, color:C.muted}}>{plural(notasPend.length, "nota", "notas")} · {plural(grupos.length, "cliente", "clientes")}</span>
+                  <span className="num" style={{fontSize:20, fontWeight:700}}>{fmtBRL(soma(notasPend))}</span>
                 </div>
-
-                {compromissos.length === 0 ? (
-                  <div className="rounded-2xl p-8 text-center" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                    <CheckCircle2 size={32} style={{color:C.green, margin:"0 auto 8px"}}/>
-                    <p className="font-semibold text-sm" style={{color:C.ink}}>Nada a pagar!</p>
-                    <p className="text-xs mt-1" style={{color:C.inkMute}}>Todas as contas estão em dia.</p>
-                  </div>
-                ) : compromissos.map(c => {
-                  const dias = diasAteVenc(c.vencimento);
-                  const urgente = dias !== null && dias >= 0 && dias <= 3;
-                  const vencido = c.vencido;
-                  const borderColor = vencido ? C.red : urgente ? C.amber : C.border;
-                  return (
-                    <div key={c.id} className="rounded-2xl p-4" style={{background:C.card, border:`1.5px solid ${borderColor}`}}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm" style={{color:C.ink}}>{c.descricao}</span>
-                            <span className="px-2 py-0.5 rounded-md text-xs font-semibold"
-                              style={{background:`${C.navy}15`, color:C.navy}}>{c.tipo}</span>
+                {grupos.length === 0 && (
+                  <div style={{...card, padding:"24px 16px", textAlign:"center", fontSize:15, color:C.muted}}>Nenhuma nota pendente.</div>
+                )}
+                {grupos.map(g => (
+                  <div key={g.cliente} style={{...card, overflow:"hidden"}}>
+                    <div style={{background:C.navy, color:"#fff", padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
+                      <div style={{display:"flex", flexDirection:"column", minWidth:0}}>
+                        <span style={{fontSize:17, fontWeight:700}}>{g.cliente}</span>
+                        <span style={{fontSize:13, color:C.navySoft}}>{plural(g.notas.length, "nota pendente", "notas pendentes")}</span>
+                      </div>
+                      <span className="num" style={{fontSize:18, fontWeight:700, whiteSpace:"nowrap"}}>{fmtBRL(g.total)}</span>
+                    </div>
+                    {g.notas.map(n => {
+                      const p = prazoInfo(n.vencimento);
+                      return (
+                        <div key={n.id} style={{padding:"12px 14px", borderTop:`1px solid ${C.borderSoft}`, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8}}>
+                          <div style={{display:"flex", flexDirection:"column", gap:2, minWidth:0}}>
+                            <span className="mono" style={{fontSize:13, color:C.muted}}>{n.numNota ? `NF ${n.numNota}` : "Sem número"}</span>
+                            <span style={{fontSize:14, color:C.muted}}>Vencimento {fmtData(n.vencimento)}</span>
                           </div>
-                          <p className="text-xs mt-0.5" style={{color:C.inkSoft}}>{c.categoria}</p>
-                          <div className="flex items-center gap-1.5 mt-2">
-                            <Calendar size={11} style={{color: vencido?C.red:urgente?C.amber:C.inkMute}}/>
-                            <span className="text-xs" style={{color: vencido?C.red:urgente?C.amber:C.inkMute}}>
-                              {vencido ? `Vencido em ${fmtDateFull(c.vencimento)}`
-                               : dias===0 ? "Vence hoje!"
-                               : dias===1 ? "Vence amanhã"
-                               : c.vencimento ? `Vence em ${fmtDateFull(c.vencimento)}`
-                               : "Sem data"}
-                            </span>
+                          <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0}}>
+                            <span className="num" style={{fontSize:17, fontWeight:700}}>{fmtBRL(n.valor)}</span>
+                            <span style={{fontSize:14, fontWeight:600, color:p.cor}}>{p.txt}</span>
                           </div>
                         </div>
-                        <span className="font-bold text-base whitespace-nowrap" style={{color:C.ink}}>{fmtBRL(c.valor)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                ))}
+                {grupos.length > 0 && (
+                  <a href="index.html" style={{fontSize:15, fontWeight:600, textAlign:"center", padding:"8px 0"}}>Dar baixa no app Financeiro</a>
+                )}
+              </section>
             )}
 
-            {/* RECEITAS */}
-            {tab === "receitas" && (
-              <div className="flex flex-col gap-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-bold text-sm" style={{color:C.ink}}>Notas a receber</p>
-                    <span className="font-bold text-sm" style={{color:C.amber}}>{fmtBRL(totalAReceber)}</span>
-                  </div>
-                  {notasAReceber.length === 0 ? (
-                    <div className="rounded-2xl p-5 text-center" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                      <p className="text-xs" style={{color:C.inkMute}}>Nenhuma nota em aberto.</p>
-                    </div>
-                  ) : notasAReceber.map(n => {
-                    const vencido = isVencido(n.vencimento);
-                    return (
-                      <div key={n.id} className="rounded-2xl p-4 mb-2"
-                        style={{background:C.card, border:`1.5px solid ${vencido?C.amber:C.border}`}}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-bold text-sm" style={{color:C.ink}}>{n.cliente}</p>
-                            {n.numNota && <p className="text-xs mt-0.5" style={{color:C.inkMute}}>NF {n.numNota}</p>}
-                            <div className="flex items-center gap-1.5 mt-1.5">
-                              <Calendar size={11} style={{color:vencido?C.amber:C.inkMute}}/>
-                              <span className="text-xs" style={{color:vencido?C.amber:C.inkMute}}>
-                                {vencido ? `Atrasada — ${fmtDateFull(n.vencimento)}` : `Vence ${fmtDateFull(n.vencimento)}`}
-                              </span>
-                            </div>
+            {/* A PAGAR */}
+            {tab === "pagar" && (
+              <section style={{display:"flex", flexDirection:"column", gap:12}}>
+                <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
+                  <span style={{fontSize:15, color:C.muted}}>{plural(compromissos.length, "compromisso em aberto", "compromissos em aberto")}</span>
+                  <span className="num" style={{fontSize:20, fontWeight:700}}>{fmtBRL(totalAP)}</span>
+                </div>
+                {compromissos.length === 0 ? (
+                  <div style={{...card, padding:"24px 16px", textAlign:"center", fontSize:15, color:C.muted}}>Nada a pagar. Todas as contas estão em dia.</div>
+                ) : (
+                  <div style={{...card, overflow:"hidden"}}>
+                    {compromissos.map((c, i) => {
+                      const p = prazoInfo(c.vencimento);
+                      const venc = isVencido(c.vencimento);
+                      return (
+                        <div key={c.id} style={{padding:"12px 14px", borderTop: i ? `1px solid ${C.borderSoft}` : "none", background: venc ? "#FDF0EE" : C.card, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8}}>
+                          <div style={{display:"flex", flexDirection:"column", gap:2, minWidth:0}}>
+                            <span style={{fontSize:15, fontWeight:600}}>{c.descricao}</span>
+                            <span style={{fontSize:13, color:C.muted}}>
+                              {c.tipo}{c.categoria ? ` · ${c.categoria}` : ""}{c.parcela ? ` · parcela ${c.parcela}` : ""}
+                            </span>
+                            <span style={{fontSize:14, color:C.muted}}>Vencimento {fmtData(c.vencimento)}</span>
                           </div>
-                          <span className="font-bold text-base whitespace-nowrap" style={{color:C.green}}>{fmtBRL(n.valor)}</span>
+                          <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0}}>
+                            <span className="num" style={{fontSize:17, fontWeight:700}}>{fmtBRL(c.valor)}</span>
+                            <span style={{fontSize:14, fontWeight:600, color:p.cor}}>{p.txt}</span>
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* EVOLUÇÃO */}
+            {tab === "evolucao" && (
+              <section style={{display:"flex", flexDirection:"column", gap:16}}>
+                <FaturamentoMensal meses={meses} />
+
+                <div style={{...card, overflow:"hidden"}}>
+                  <div style={{padding:"14px 16px 10px"}}><h2 style={h2}>Resultado por mês</h2></div>
+                  <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, padding:"8px 16px", background:"#23272E", color:"#fff", fontSize:13, fontWeight:600, letterSpacing:"0.02em", textTransform:"uppercase"}}>
+                    <span>Mês</span><span style={{textAlign:"right"}}>Receita</span><span style={{textAlign:"right"}}>Despesa</span><span style={{textAlign:"right"}}>Saldo</span>
+                  </div>
+                  {meses.map(m => {
+                    const r = m.rec - m.desp;
+                    return (
+                      <div key={m.m} className="num" style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, padding:"10px 16px", borderTop:`1px solid ${C.borderSoft}`, fontSize:14, background: m.atual ? C.tint : C.card}}>
+                        <span style={{fontWeight:600, textTransform:"capitalize"}}>{m.rot}</span>
+                        <span style={{textAlign:"right"}}>{fmtBRLc(m.rec)}</span>
+                        <span style={{textAlign:"right"}}>{fmtBRLc(m.desp)}</span>
+                        <span style={{textAlign:"right", fontWeight:700, color: r >= 0 ? C.ok : C.danger}}>{fmtBRLc(r)}</span>
                       </div>
                     );
                   })}
                 </div>
 
-                <div>
-                  <p className="font-bold text-sm mb-2" style={{color:C.ink}}>Serviços lançados em {mesLabel}</p>
-                  {lancamentos.filter(l => l.tipo==="Receita" && l.data && l.data.startsWith(mes)).length === 0 ? (
-                    <div className="rounded-2xl p-6 text-center" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                      <p className="text-xs" style={{color:C.inkMute}}>Nenhum serviço lançado este mês.</p>
-                      <a href="index.html" className="text-xs font-semibold block mt-2" style={{color:C.primary}}>Adicionar no Financeiro →</a>
-                    </div>
-                  ) : lancamentos
-                      .filter(l => l.tipo==="Receita" && l.data && l.data.startsWith(mes))
-                      .sort((a,b) => b.data < a.data ? -1 : 1)
-                      .map(l => (
-                        <div key={l.id} className="rounded-xl p-3 mb-2 flex items-center justify-between gap-2"
-                          style={{background:C.borderSoft}}>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold truncate" style={{color:C.ink}}>{l.descricao}</p>
-                            <p className="text-xs mt-0.5" style={{color:C.inkSoft}}>{l.categoria} · {fmtDateFull(l.data)}</p>
-                          </div>
-                          <span className="font-bold text-sm whitespace-nowrap" style={{color:C.green}}>{fmtBRL(l.valor)}</span>
-                        </div>
-                      ))
-                  }
-                </div>
-              </div>
-            )}
-
-            {/* EVOLUÇÃO */}
-            {tab === "evolucao" && (
-              <div className="flex flex-col gap-4">
-                <div className="rounded-2xl p-4" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                  <p className="font-bold text-sm mb-3" style={{color:C.ink}}>Receitas vs Despesas — últimos 6 meses</p>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={evolucao} margin={{left:-10,right:8,top:0,bottom:0}}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
-                      <XAxis dataKey="label" tick={{fontSize:10,fill:C.inkSoft}}/>
-                      <YAxis tick={{fontSize:9,fill:C.inkMute}} tickFormatter={v=>fmtBRLc(v)}/>
-                      <Tooltip formatter={v=>fmtBRL(v)} contentStyle={{borderRadius:10,border:`1px solid ${C.border}`,fontSize:12}}/>
-                      <Legend wrapperStyle={{fontSize:11}}/>
-                      <Bar dataKey="rec" name="Receita" fill={C.green} radius={[4,4,0,0]}/>
-                      <Bar dataKey="desp" name="Despesa" fill={C.red} radius={[4,4,0,0]}/>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="rounded-2xl p-4" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                  <p className="font-bold text-sm mb-3" style={{color:C.ink}}>Resultado por mês</p>
-                  <div className="flex flex-col gap-2.5">
-                    {evolucao.map((m,i) => {
-                      const positivo = m.result >= 0;
-                      const maxVal = Math.max(...evolucao.map(x => Math.abs(x.result)), 1);
-                      const pct = Math.abs(m.result) / maxVal;
+                {dividas.filter(d => d.status === "Ativo").length > 0 && (
+                  <div style={{...card, padding:16, display:"flex", flexDirection:"column", gap:14}}>
+                    <h2 style={h2}>Dívidas ativas</h2>
+                    {dividas.filter(d => d.status === "Ativo").map(d => {
+                      const pct = d.parcelaTotal > 0 ? Math.min(1, d.parcelaPaga / d.parcelaTotal) : 0;
                       return (
-                        <div key={i} className="flex items-center gap-3">
-                          <span className="text-xs w-8 text-right" style={{color:C.inkSoft}}>{m.label}</span>
-                          <div className="flex-1 h-6 rounded-lg overflow-hidden" style={{background:C.borderSoft}}>
-                            <div style={{
-                              width: `${Math.max(pct*100, m.result!==0?8:0)}%`, height:"100%",
-                              background: positivo ? C.green : C.red,
-                              borderRadius:6,
-                              display:"flex", alignItems:"center", paddingLeft:6,
-                            }}>
-                              {m.result !== 0 && (
-                                <span style={{color:"#fff",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
-                                  {fmtBRLc(m.result)}
-                                </span>
-                              )}
-                            </div>
+                        <div key={d.id} style={{display:"flex", flexDirection:"column", gap:4}}>
+                          <div style={{display:"flex", justifyContent:"space-between", gap:8}}>
+                            <span style={{fontSize:15, fontWeight:600}}>{d.credor}</span>
+                            <span className="num" style={{fontSize:14, color:C.muted}}>{fmtBRL(d.saldo)} restante</span>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {dividas.filter(d=>d.status==="Ativo").length > 0 && (
-                  <div className="rounded-2xl p-4" style={{background:C.card, border:`1px solid ${C.border}`}}>
-                    <p className="font-bold text-sm mb-3" style={{color:C.ink}}>Dívidas ativas</p>
-                    {dividas.filter(d=>d.status==="Ativo").map(d => {
-                      const pct = d.parcelaTotal > 0 ? d.parcelaPaga / d.parcelaTotal : 0;
-                      return (
-                        <div key={d.id} className="mb-4 last:mb-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-semibold" style={{color:C.ink}}>{d.credor}</span>
-                            <span className="text-xs" style={{color:C.inkSoft}}>{fmtBRL(d.saldo)} restante</span>
+                          <div style={{height:8, background:C.borderSoft, borderRadius:4, overflow:"hidden"}}>
+                            <div style={{width:`${pct*100}%`, height:"100%", background:C.navy}}></div>
                           </div>
-                          <div className="h-2 rounded-full overflow-hidden" style={{background:C.borderSoft}}>
-                            <div style={{width:`${pct*100}%`, height:"100%", background:C.primary, borderRadius:4}}/>
-                          </div>
-                          <div className="flex justify-between mt-1">
-                            <span className="text-xs" style={{color:C.inkMute}}>{d.parcelaPaga}/{d.parcelaTotal} parcelas</span>
-                            <span className="text-xs" style={{color:C.inkMute}}>{fmtBRL(d.valorParcela)}/mês</span>
+                          <div style={{display:"flex", justifyContent:"space-between", fontSize:13, color:C.muted}}>
+                            <span>{d.parcelaPaga||0}/{d.parcelaTotal||0} parcelas</span>
+                            <span className="num">{fmtBRL(d.valorParcela)}/mês</span>
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 )}
-              </div>
+              </section>
             )}
+          </main>
 
-          </div>
+          <nav aria-label="Telas" style={{position:"sticky", bottom:0, background:"#fff", borderTop:`1px solid ${C.border}`, paddingBottom:"env(safe-area-inset-bottom)"}}>
+            <div style={{maxWidth:560, margin:"0 auto", display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))"}}>
+              {NAV.map(n => {
+                const ativo = tab === n.k;
+                return (
+                  <button key={n.k} type="button" onClick={() => setTab(n.k)} aria-current={ativo ? "page" : undefined}
+                    style={{minHeight:60, border:0, borderTop:`3px solid ${ativo ? C.amber : "transparent"}`, background:"#fff", color: ativo ? C.navy : C.muted, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2, fontSize:13, fontWeight:600, cursor:"pointer"}}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{n.icon}</svg>
+                    {n.l}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
         </div>
       );
     }
 
-    function KpiCard({ label, value, color, icon: Icon, highlight }) {
+    const NAV = [
+      { k: "resumo", l: "Resumo", icon: <><path d="M3 3v18h18"/><path d="M8 16v-5"/><path d="M13 16V7"/><path d="M18 16v-3"/></> },
+      { k: "receber", l: "A receber", icon: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></> },
+      { k: "pagar", l: "A pagar", icon: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></> },
+      { k: "evolucao", l: "Evolução", icon: <><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></> },
+    ];
+
+    function FaturamentoMensal({ meses }) {
+      const max = Math.max(1, ...meses.map(m => m.rec));
       return (
-        <div className="rounded-2xl p-4" style={{
-          background: highlight ? C.navy : C.card,
-          border: `1.5px solid ${highlight ? "transparent" : C.border}`,
-        }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide"
-              style={{color: highlight ? "rgba(255,255,255,0.6)" : C.inkSoft}}>{label}</span>
-            <div className="p-1.5 rounded-lg" style={{background: highlight ? "rgba(255,255,255,0.1)" : `${color}18`}}>
-              <Icon size={13} style={{color: highlight ? "#fff" : color}}/>
-            </div>
+        <div style={{...card, padding:16, display:"flex", flexDirection:"column", gap:12}}>
+          <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
+            <h2 style={h2}>Faturamento por mês</h2>
+            <span style={{fontSize:13, color:C.muted}}>receitas, 6 meses</span>
           </div>
-          <p className="font-bold text-lg leading-tight" style={{color: highlight ? "#fff" : C.ink}}>{fmtBRL(value)}</p>
+          <div role="img" aria-label={"Receitas por mês: " + meses.map(m => `${m.rot} ${fmtBRL(m.rec)}`).join(", ")}
+            style={{display:"grid", gridTemplateColumns:"repeat(6, minmax(0, 1fr))", gap:8, alignItems:"end", height:190, borderBottom:`1px solid ${C.border}`}}>
+            {meses.map(m => (
+              <div key={m.m} style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-end", gap:4, height:"100%"}}>
+                <span style={{fontSize:11, fontWeight:600, color:C.muted, textAlign:"center", whiteSpace:"nowrap"}}>{m.rec ? fmtBRLc(m.rec) : "—"}</span>
+                <div title={fmtBRL(m.rec)} style={{width:"100%", maxWidth:44, height: m.rec ? Math.max(4, Math.round(m.rec / max * 150)) : 0, background: m.atual ? C.amber : C.navy, borderRadius:"4px 4px 0 0"}}></div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"grid", gridTemplateColumns:"repeat(6, minmax(0, 1fr))", gap:8}}>
+            {meses.map(m => (
+              <span key={m.m} style={{fontSize:13, fontWeight:600, textAlign:"center", color:C.muted, textTransform:"capitalize"}}>{m.rot}</span>
+            ))}
+          </div>
         </div>
       );
     }
