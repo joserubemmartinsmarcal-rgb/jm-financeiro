@@ -10,12 +10,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="lib/cloud.js"></script>
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: #F6F5F1; overscroll-behavior-y: none; }
     body { color: #1C1F24; font-family: Barlow, "Arial Narrow", Arial, sans-serif; }
     a { color: #1F5FBF; } a:hover { color: #174A95; }
-    button { font-family: inherit; }
+    button, input, select { font-family: inherit; }
     .mono { font-family: "IBM Plex Mono", Consolas, monospace; }
     .num { font-variant-numeric: tabular-nums; }
   </style>
@@ -24,16 +25,21 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
 
-    // Paleta do design system "JM Transportes" (artifact Controle de Faturamento)
+    // Paleta do design system "JM Transportes"
     const C = {
-      bg: "#F6F5F1", card: "#FFFFFF", navy: "#1F4E79", navySoft: "#D6E2EE",
+      bg: "#F6F5F1", card: "#FFFFFF", navy: "#1F4E79", navyDark: "#173B5C", navySoft: "#D6E2EE",
       amber: "#F2B705", tint: "#FFF4CC",
       ink: "#1C1F24", muted: "#5B616B",
       border: "#D9D6CC", borderSoft: "#ECEAE3",
       ok: "#1E7A46", warn: "#B45309", danger: "#B42318",
     };
+
+    // Mesmas listas do app Financeiro (index.html)
+    const CATS_REC = ["Frete - Carga Fechada","Frete - Carga Fracionada","Frete - Mudanças","Locação de Veículo","Outros Serviços","Receita Financeira"];
+    const CATS_DESP = ["Combustível","Pedágio","Manutenção","Pneus","Salários Motoristas","Encargos Sociais","Seguro Veículos","IPVA / Licenciamento","Aluguel Garagem","Energia / Água","Telefone / Internet","Marketing","Contabilidade","Impostos","Outras Despesas"];
+    const KEYS = { lancamentos:"jm:lancamentos", boletos:"jm:boletos", notas:"jm:notas", dividas:"jm:dividas" };
 
     const fmtBRL = v => (Number(v)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
     const fmtBRLc = v => {
@@ -46,8 +52,8 @@
     const pad = n => String(n).padStart(2,"0");
     const isoLocal = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     const todayISO = () => isoLocal(new Date());
-    const mesAtual = () => todayISO().slice(0,7);
     const isVencido = d => d && d < todayISO();
+    const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
     const diasAte = d => {
       if(!d) return null;
       const [y,m,dd] = d.split("-").map(Number);
@@ -56,10 +62,21 @@
     };
     const plural = (n, s, p) => `${n} ${n===1?s:p}`;
     const soma = (arr, k="valor") => arr.reduce((s,x) => s + (Number(x[k])||0), 0);
+    const mesRotulo = ym => { const [y,m] = ym.split("-").map(Number); const s = new Date(y, m-1, 1).toLocaleDateString("pt-BR",{month:"long", year:"numeric"}); return s.charAt(0).toUpperCase()+s.slice(1); };
+    const addMes = (ym, n) => { const [y,m] = ym.split("-").map(Number); return isoLocal(new Date(y, m-1+n, 1)).slice(0,7); };
+    const diaRotulo = iso => {
+      if (iso === todayISO()) return "Hoje";
+      const ontem = new Date(); ontem.setDate(ontem.getDate()-1);
+      if (iso === isoLocal(ontem)) return "Ontem";
+      const [y,m,d] = iso.split("-").map(Number);
+      const s = new Date(y,m-1,d).toLocaleDateString("pt-BR",{weekday:"long", day:"2-digit", month:"short"}).replace(".","");
+      return s.charAt(0).toUpperCase()+s.slice(1);
+    };
 
     function readLS(key) {
       try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : []; } catch { return []; }
     }
+    function readFlag(key) { try { return localStorage.getItem(key) === "1"; } catch { return false; } }
 
     function prazoInfo(venc) {
       const dias = diasAte(venc);
@@ -70,354 +87,532 @@
       return { txt: `Vence em ${plural(dias, "dia", "dias")}`, cor: C.muted };
     }
 
-    const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 };
+    const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 };
     const h2 = { margin: 0, fontSize: 20, lineHeight: "26px", fontWeight: 600 };
+    const btnPrim = { minHeight:44, padding:"0 16px", border:0, borderRadius:8, background:C.navy, color:"#fff", fontSize:15, fontWeight:700, cursor:"pointer" };
+    const btnSec = { minHeight:44, padding:"0 16px", border:`1px solid ${C.border}`, borderRadius:8, background:"#fff", color:C.ink, fontSize:15, fontWeight:600, cursor:"pointer" };
+    const btnMini = (cor) => ({ minHeight:40, padding:"0 14px", border:`1px solid ${cor}`, borderRadius:8, background:"#fff", color:cor, fontSize:14, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" });
+    const inp = { width:"100%", minHeight:44, border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 10px", fontSize:16, background:"#fff", color:C.ink };
+    const lbl = { display:"flex", flexDirection:"column", gap:4, fontSize:13, fontWeight:600 };
+
+    function Icon({ d, size=22 }) {
+      return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>;
+    }
+    const I = {
+      plus: <><path d="M12 5v14"/><path d="M5 12h14"/></>,
+      minus: <path d="M5 12h14"/>,
+      bill: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></>,
+      inbox: <><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></>,
+      home: <><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></>,
+      list: <><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></>,
+      eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></>,
+      eyeOff: <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M1 1l22 22"/></>,
+      up: <><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></>,
+      down: <><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></>,
+      chevL: <path d="M15 18l-6-6 6-6"/>,
+      chevR: <path d="M9 18l6-6-6-6"/>,
+      x: <><path d="M6 6l12 12"/><path d="M18 6L6 18"/></>,
+      cloud: <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/>,
+    };
 
     function App() {
-      const [lancamentos, setLancamentos] = useState(() => readLS("jm:lancamentos"));
-      const [boletos, setBoletos]         = useState(() => readLS("jm:boletos"));
-      const [notas, setNotas]             = useState(() => readLS("jm:notas"));
-      const [dividas, setDividas]         = useState(() => readLS("jm:dividas"));
-      const [tab, setTab]                 = useState("resumo");
+      const [lancamentos, setLancamentos] = useState(() => readLS(KEYS.lancamentos));
+      const [boletos, setBoletos]         = useState(() => readLS(KEYS.boletos));
+      const [notas, setNotas]             = useState(() => readLS(KEYS.notas));
+      const [dividas, setDividas]         = useState(() => readLS(KEYS.dividas));
+      const [tab, setTab]                 = useState("inicio");
+      const [oculto, setOculto]           = useState(() => readFlag("jm:dash-hide"));
+      const [logado, setLogado]           = useState(false);
+      const [form, setForm]               = useState(null);   // novo lançamento
+      const [baixa, setBaixa]             = useState(null);   // pagar / receber
+      const [toast, setToast]             = useState(null);
+      const toastTimer = useRef(null);
+
+      const setters = { [KEYS.lancamentos]: setLancamentos, [KEYS.boletos]: setBoletos, [KEYS.notas]: setNotas, [KEYS.dividas]: setDividas };
+
+      // Grava no aparelho e envia para a nuvem (mesmo caminho do app Financeiro)
+      const salvar = (key, arr) => {
+        setters[key](arr);
+        try { localStorage.setItem(key, JSON.stringify(arr)); } catch {}
+        try { window.JMCloud && window.JMCloud.push(key, arr); } catch {}
+      };
 
       useEffect(() => {
         const sync = () => {
-          setLancamentos(readLS("jm:lancamentos"));
-          setBoletos(readLS("jm:boletos"));
-          setNotas(readLS("jm:notas"));
-          setDividas(readLS("jm:dividas"));
+          setLancamentos(readLS(KEYS.lancamentos)); setBoletos(readLS(KEYS.boletos));
+          setNotas(readLS(KEYS.notas)); setDividas(readLS(KEYS.dividas));
         };
         const onVis = () => { if (document.visibilityState === "visible") sync(); };
         window.addEventListener("focus", sync);
         window.addEventListener("storage", sync);
         document.addEventListener("visibilitychange", onVis);
+        const cloud = window.JMCloud;
+        const onPull = e => { if (e && setters[e.key]) setters[e.key](e.data || []); };
+        const onChange = () => setLogado(!!(cloud && cloud.getUser()));
+        if (cloud) { cloud.on("pull", onPull); cloud.on("change", onChange); cloud.init(); }
         return () => {
           window.removeEventListener("focus", sync);
           window.removeEventListener("storage", sync);
           document.removeEventListener("visibilitychange", onVis);
+          if (cloud) { cloud.off("pull", onPull); cloud.off("change", onChange); }
         };
       }, []);
 
-      const mes = mesAtual();
-      const mesLabel = new Date().toLocaleDateString("pt-BR",{month:"long", year:"numeric"}).replace(/^./, c => c.toUpperCase());
+      const toggleOculto = () => { const v = !oculto; setOculto(v); try { localStorage.setItem("jm:dash-hide", v ? "1" : "0"); } catch {} };
+      const $ = v => oculto ? "R$ ••••" : fmtBRL(v);
 
-      const receitasMesL = lancamentos.filter(l => l.tipo==="Receita" && l.data && l.data.startsWith(mes));
-      const despesasMesL = lancamentos.filter(l => l.tipo==="Despesa" && l.data && l.data.startsWith(mes));
-      const receitasMes = soma(receitasMesL);
-      const despesasMes = soma(despesasMesL);
-      const resultadoMes = receitasMes - despesasMes;
+      const avisar = (msg, desfazer) => {
+        clearTimeout(toastTimer.current);
+        setToast({ msg, desfazer });
+        toastTimer.current = setTimeout(() => setToast(null), 6000);
+      };
 
-      const notasPend = notas.filter(n => n.status !== "Recebido");
-      const notasVenc = notasPend.filter(n => isVencido(n.vencimento));
+      // ---------- números ----------
+      const mes = todayISO().slice(0,7);
+      const doMes = lancamentos.filter(l => l.data && l.data.startsWith(mes));
+      const entradas = soma(doMes.filter(l => l.tipo === "Receita"));
+      const saidas = soma(doMes.filter(l => l.tipo === "Despesa"));
+      const saldo = entradas - saidas;
 
+      const notasPend = notas.filter(n => n.status !== "Recebido")
+        .sort((a,b) => (a.vencimento||"9999").localeCompare(b.vencimento||"9999"));
       const compromissos = useMemo(() => {
         const b = boletos.filter(b => b.status !== "Pago").map(b => ({
-          id: b.id, tipo: "Boleto", descricao: b.fornecedor, categoria: b.categoria,
-          valor: Number(b.valor)||0, vencimento: b.vencimento,
+          kind: "boleto", id: b.id, descricao: b.fornecedor, categoria: b.categoria, valor: Number(b.valor)||0, vencimento: b.vencimento,
         }));
         const d = dividas.filter(d => d.status === "Ativo").map(d => ({
-          id: d.id, tipo: "Dívida", descricao: d.credor, categoria: d.tipo || "Financiamento",
-          valor: Number(d.valorParcela)||0, vencimento: d.proxVenc,
-          parcela: `${d.parcelaPaga||0}/${d.parcelaTotal||0}`,
+          kind: "divida", id: d.id, descricao: d.credor, categoria: d.tipo || "Financiamento", valor: Number(d.valorParcela)||0, vencimento: d.proxVenc,
+          parcela: `${(d.parcelaPaga||0)+1}/${d.parcelaTotal||"?"}`,
         }));
         return [...b, ...d].sort((a,b) => (a.vencimento||"9999").localeCompare(b.vencimento||"9999"));
       }, [boletos, dividas]);
-      const totalAP = soma(compromissos);
+      const aPagar = soma(compromissos);
+      const aReceber = soma(notasPend);
       const vencidosAP = compromissos.filter(c => isVencido(c.vencimento));
+      const notasVenc = notasPend.filter(n => isVencido(n.vencimento));
 
       const meses = useMemo(() => {
-        const out = [];
-        const hoje = new Date();
+        const out = []; const hoje = new Date();
         for (let i = 5; i >= 0; i--) {
           const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
           const m = isoLocal(d).slice(0,7);
-          const rec = soma(lancamentos.filter(l => l.tipo==="Receita" && l.data && l.data.startsWith(m)));
-          const desp = soma(lancamentos.filter(l => l.tipo==="Despesa" && l.data && l.data.startsWith(m)));
-          out.push({ m, rot: d.toLocaleDateString("pt-BR",{month:"short"}).replace(".",""), rec, desp, atual: i===0 });
+          out.push({ m, rot: d.toLocaleDateString("pt-BR",{month:"short"}).replace(".",""), atual: i===0,
+            rec: soma(lancamentos.filter(l => l.tipo==="Receita" && l.data && l.data.startsWith(m))) });
         }
         return out;
       }, [lancamentos]);
 
-      const despCat = useMemo(() => {
-        const map = {};
-        despesasMesL.forEach(l => { const k = l.categoria || "Outros"; map[k] = (map[k]||0) + (Number(l.valor)||0); });
-        return Object.entries(map).map(([nome, valor]) => ({ nome, valor })).sort((a,b) => b.valor - a.valor);
-      }, [lancamentos, mes]);
+      const recentes = [...lancamentos].sort((a,b) => (b.data||"").localeCompare(a.data||"")).slice(0,5);
 
-      const grupos = useMemo(() => {
-        const map = {};
-        notasPend.forEach(n => { const c = n.cliente || "Sem cliente"; (map[c] = map[c] || []).push(n); });
-        return Object.entries(map).map(([cliente, lista]) => ({
-          cliente, total: soma(lista),
-          notas: lista.slice().sort((a,b) => (a.vencimento||"9999").localeCompare(b.vencimento||"9999")),
-        })).sort((a,b) => b.total - a.total);
-      }, [notas]);
+      // ---------- ações ----------
+      const novoLancamento = (tipo) => (setToast(null), setForm({ tipo, descricao:"", valor:"", categoria: tipo==="Receita" ? CATS_REC[0] : CATS_DESP[0], data: todayISO(), erro:"" }));
 
-      const kpis = [
-        { titulo: "Receitas do mês", valor: fmtBRL(receitasMes), sub: plural(receitasMesL.length, "lançamento", "lançamentos"), cor: C.navy },
-        { titulo: "A receber", valor: fmtBRL(soma(notasPend)), sub: plural(notasPend.length, "nota pendente", "notas pendentes"), cor: C.warn },
-        { titulo: "Vencido", valor: fmtBRL(soma(notasVenc)), sub: plural(notasVenc.length, "nota em atraso", "notas em atraso"), cor: notasVenc.length ? C.danger : C.ink },
-        { titulo: "Resultado do mês", valor: fmtBRL(resultadoMes), sub: `Despesas ${fmtBRL(despesasMes)}`, cor: resultadoMes > 0 ? C.ok : resultadoMes < 0 ? C.danger : C.ink },
-      ];
+      const salvarLancamento = (e) => {
+        e.preventDefault();
+        const valor = Number(String(form.valor).replace(",", "."));
+        if (!form.descricao.trim() || !(valor > 0)) { setForm({ ...form, erro: "Preencha a descrição e um valor maior que zero." }); return; }
+        const antes = lancamentos;
+        const item = { id: uid(), data: form.data || todayISO(), descricao: form.descricao.trim(), categoria: form.categoria, tipo: form.tipo, valor };
+        salvar(KEYS.lancamentos, [item, ...lancamentos]);
+        setForm(null);
+        avisar(`${form.tipo === "Receita" ? "Receita" : "Despesa"} de ${fmtBRL(valor)} lançada`, () => salvar(KEYS.lancamentos, antes));
+      };
 
-      const semDados = !lancamentos.length && !boletos.length && !notas.length && !dividas.length;
-      const titulos = { resumo: "Dashboard", receber: "A receber", pagar: "A pagar", evolucao: "Evolução" };
+      const abrirPagar = (c) => (setToast(null), setBaixa({
+        modo: "pagar", item: c, data: todayISO(), lancar: true,
+        categoria: CATS_DESP.includes(c.categoria) ? c.categoria : "Outras Despesas",
+        titulo: c.descricao, sub: c.kind === "divida" ? `Parcela ${c.parcela} · ${c.categoria}` : (c.categoria || "Boleto"), valor: c.valor,
+      }));
+      const abrirReceber = (n) => (setToast(null), setBaixa({
+        modo: "receber", item: n, data: todayISO(), lancar: true, categoria: CATS_REC[0],
+        titulo: n.cliente || "Sem cliente", sub: n.numNota ? `NF ${n.numNota}` : "Nota sem número", valor: Number(n.valor)||0,
+      }));
+
+      const confirmarBaixa = () => {
+        const b = baixa;
+        const snap = { l: lancamentos, b: boletos, n: notas, d: dividas };
+        let novoL = lancamentos;
+        if (b.modo === "pagar") {
+          if (b.item.kind === "boleto") {
+            salvar(KEYS.boletos, boletos.map(x => x.id === b.item.id ? { ...x, status: "Pago" } : x));
+          } else {
+            // mesmo invariante do app: saldo -= parcela (mínimo 0); quita quando pagas >= total
+            salvar(KEYS.dividas, dividas.map(x => {
+              if (x.id !== b.item.id) return x;
+              const pagas = (x.parcelaPaga||0) + 1;
+              return { ...x, parcelaPaga: pagas, saldo: Math.max(0, (x.saldo||0) - (x.valorParcela||0)), status: pagas >= x.parcelaTotal ? "Quitado" : "Ativo" };
+            }));
+          }
+          if (b.lancar) novoL = [{ id: uid(), data: b.data, descricao: b.item.kind === "divida" ? `${b.titulo} — parcela ${b.item.parcela}` : b.titulo, categoria: b.categoria, tipo: "Despesa", valor: b.valor }, ...lancamentos];
+        } else {
+          salvar(KEYS.notas, notas.map(x => x.id === b.item.id ? { ...x, status: "Recebido" } : x));
+          if (b.lancar) novoL = [{ id: uid(), data: b.data, descricao: b.item.numNota ? `${b.titulo} — NF ${b.item.numNota}` : b.titulo, categoria: b.categoria, tipo: "Receita", valor: b.valor }, ...lancamentos];
+        }
+        if (novoL !== lancamentos) salvar(KEYS.lancamentos, novoL);
+        setBaixa(null);
+        avisar(b.modo === "pagar" ? `Pago: ${b.titulo} · ${fmtBRL(b.valor)}` : `Recebido: ${b.titulo} · ${fmtBRL(b.valor)}`, () => {
+          salvar(KEYS.lancamentos, snap.l); salvar(KEYS.boletos, snap.b); salvar(KEYS.notas, snap.n); salvar(KEYS.dividas, snap.d);
+        });
+      };
+
+      const titulos = { inicio: "Olá, JM", extrato: "Extrato", pagar: "Pagar", receber: "Receber" };
 
       return (
         <div style={{minHeight:"100vh", display:"flex", flexDirection:"column", background:C.bg}}>
           <header style={{background:C.navy, color:"#fff", paddingTop:"env(safe-area-inset-top)"}}>
-            <div style={{maxWidth:560, margin:"0 auto", padding:"16px 16px 14px", display:"flex", justifyContent:"space-between", alignItems:"flex-end", gap:12}}>
+            <div style={{maxWidth:560, margin:"0 auto", padding:"14px 16px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12}}>
               <div style={{display:"flex", flexDirection:"column", gap:2, minWidth:0}}>
                 <span style={{fontSize:13, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", color:C.navySoft}}>JM Transportes e Auto Socorro</span>
-                <h1 style={{margin:0, fontSize:28, lineHeight:"34px", fontWeight:700}}>{titulos[tab]}</h1>
-                <span style={{fontSize:14, color:C.navySoft}}>{mesLabel}</span>
+                <h1 style={{margin:0, fontSize:24, lineHeight:"30px", fontWeight:700}}>{titulos[tab]}</h1>
+                <span style={{fontSize:13, color:C.navySoft, display:"flex", alignItems:"center", gap:6}}>
+                  <Icon d={I.cloud} size={14}/> {logado ? "Sincronizado na nuvem" : "Salvo só neste aparelho"}
+                </span>
               </div>
-              <a href="index.html" style={{flexShrink:0, minHeight:44, padding:"0 14px", display:"inline-flex", alignItems:"center", gap:6, borderRadius:4, border:"1px solid rgba(255,255,255,0.35)", color:"#fff", textDecoration:"none", fontSize:15, fontWeight:600}}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-                Financeiro
-              </a>
+              <div style={{display:"flex", gap:8, flexShrink:0}}>
+                <button type="button" onClick={toggleOculto} aria-label={oculto ? "Mostrar valores" : "Esconder valores"} aria-pressed={oculto}
+                  style={{minWidth:44, minHeight:44, borderRadius:8, border:"1px solid rgba(255,255,255,0.35)", background:"transparent", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center"}}>
+                  <Icon d={oculto ? I.eyeOff : I.eye} size={20}/>
+                </button>
+                <a href="index.html" style={{minHeight:44, padding:"0 12px", display:"inline-flex", alignItems:"center", borderRadius:8, border:"1px solid rgba(255,255,255,0.35)", color:"#fff", textDecoration:"none", fontSize:14, fontWeight:600}}>Financeiro</a>
+              </div>
             </div>
             <div style={{height:4, background:C.amber}}></div>
           </header>
 
           <main style={{flex:"1 1 auto", width:"100%", maxWidth:560, margin:"0 auto", padding:"16px 16px 24px", display:"flex", flexDirection:"column", gap:16}}>
 
-            {tab === "resumo" && semDados && (
-              <div style={{...card, padding:"24px 16px", textAlign:"center", display:"flex", flexDirection:"column", gap:8, alignItems:"center"}}>
-                <p style={{margin:0, fontSize:17, fontWeight:700}}>Nenhum dado ainda</p>
-                <p style={{margin:0, fontSize:15, color:C.muted}}>Lance receitas, boletos e notas no app Financeiro para ver o painel.</p>
-                <a href="index.html" style={{marginTop:8, minHeight:44, padding:"0 18px", display:"inline-flex", alignItems:"center", borderRadius:4, background:C.navy, color:"#fff", textDecoration:"none", fontWeight:600}}>Abrir Financeiro</a>
-              </div>
-            )}
-
-            {/* RESUMO */}
-            {tab === "resumo" && !semDados && (
+            {/* INÍCIO */}
+            {tab === "inicio" && (
               <section style={{display:"flex", flexDirection:"column", gap:16}}>
-                {(notasVenc.length > 0 || vencidosAP.length > 0) && (
-                  <div role="status" style={{background:C.tint, border:`1px solid ${C.amber}`, borderRadius:8, padding:"10px 12px", fontSize:15}}>
-                    {vencidosAP.length > 0 && <div><strong>{plural(vencidosAP.length, "conta vencida", "contas vencidas")}</strong> a pagar · {fmtBRL(soma(vencidosAP))}</div>}
-                    {notasVenc.length > 0 && <div><strong>{plural(notasVenc.length, "nota atrasada", "notas atrasadas")}</strong> a receber · {fmtBRL(soma(notasVenc))}</div>}
-                  </div>
-                )}
-
-                <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(max(150px, calc(50% - 6px)), 1fr))", gap:12}}>
-                  {kpis.map(k => (
-                    <div key={k.titulo} style={{...card, padding:14, display:"flex", flexDirection:"column", gap:4}}>
-                      <span style={{fontSize:13, lineHeight:"18px", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em", color:C.muted}}>{k.titulo}</span>
-                      <span className="num" style={{fontSize:22, lineHeight:"28px", fontWeight:700, color:k.cor}}>{k.valor}</span>
-                      <span style={{fontSize:13, color:C.muted}}>{k.sub}</span>
+                <div style={{background:C.navyDark, color:"#fff", borderRadius:16, padding:"18px 18px 16px", display:"flex", flexDirection:"column", gap:12}}>
+                  <span style={{fontSize:14, color:C.navySoft}}>Saldo de {mesRotulo(mes).toLowerCase()}</span>
+                  <span className="num" style={{fontSize:36, lineHeight:"40px", fontWeight:700, color: oculto ? "#fff" : saldo < 0 ? "#FFB4AB" : "#fff"}}>{$(saldo)}</span>
+                  <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, borderTop:"1px solid rgba(255,255,255,0.18)", paddingTop:12}}>
+                    <div style={{display:"flex", flexDirection:"column", gap:2}}>
+                      <span style={{fontSize:13, color:C.navySoft, display:"flex", alignItems:"center", gap:4}}><Icon d={I.up} size={14}/> Entradas</span>
+                      <span className="num" style={{fontSize:18, fontWeight:700}}>{$(entradas)}</span>
                     </div>
+                    <div style={{display:"flex", flexDirection:"column", gap:2}}>
+                      <span style={{fontSize:13, color:C.navySoft, display:"flex", alignItems:"center", gap:4}}><Icon d={I.down} size={14}/> Saídas</span>
+                      <span className="num" style={{fontSize:18, fontWeight:700}}>{$(saidas)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:8}}>
+                  {[
+                    { l:"Receita", i:I.plus, cor:C.ok, f:() => novoLancamento("Receita") },
+                    { l:"Despesa", i:I.minus, cor:C.danger, f:() => novoLancamento("Despesa") },
+                    { l:"Pagar", i:I.bill, cor:C.navy, f:() => setTab("pagar") },
+                    { l:"Receber", i:I.inbox, cor:C.navy, f:() => setTab("receber") },
+                  ].map(a => (
+                    <button key={a.l} type="button" onClick={a.f} style={{border:0, background:"transparent", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:6, padding:"4px 0", color:C.ink}}>
+                      <span style={{width:56, height:56, borderRadius:999, background:"#fff", border:`1px solid ${C.border}`, color:a.cor, display:"flex", alignItems:"center", justifyContent:"center"}}><Icon d={a.i} size={24}/></span>
+                      <span style={{fontSize:14, fontWeight:600}}>{a.l}</span>
+                    </button>
                   ))}
                 </div>
 
-                <button type="button" onClick={() => setTab("pagar")} style={{...card, width:"100%", padding:"14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left", color:C.ink}}>
-                  <span style={{display:"flex", flexDirection:"column", gap:2}}>
-                    <span style={{fontSize:13, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em", color:C.muted}}>Total a pagar</span>
-                    <span className="num" style={{fontSize:22, fontWeight:700}}>{fmtBRL(totalAP)}</span>
-                    <span style={{fontSize:13, color:C.muted}}>{plural(compromissos.length, "compromisso em aberto", "compromissos em aberto")}</span>
-                  </span>
-                  <span style={{minHeight:44, padding:"0 14px", display:"inline-flex", alignItems:"center", borderRadius:4, border:`1px solid ${C.navy}`, color:C.navy, fontSize:15, fontWeight:600}}>Ver</span>
-                </button>
-
-                <FaturamentoMensal meses={meses} />
-
-                {despCat.length > 0 && (
-                  <div style={{...card, padding:16, display:"flex", flexDirection:"column", gap:12}}>
-                    <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
-                      <h2 style={h2}>Despesas por categoria</h2>
-                      <span style={{fontSize:13, color:C.muted}}>mês atual</span>
-                    </div>
-                    {despCat.slice(0,6).map(d => (
-                      <div key={d.nome} style={{display:"flex", flexDirection:"column", gap:4}}>
-                        <div style={{display:"flex", justifyContent:"space-between", gap:8, fontSize:14}}>
-                          <span style={{minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{d.nome}</span>
-                          <span className="num" style={{fontWeight:600, whiteSpace:"nowrap"}}>{fmtBRL(d.valor)}</span>
-                        </div>
-                        <div style={{height:8, background:C.borderSoft, borderRadius:4, overflow:"hidden"}}>
-                          <div style={{width:`${Math.max(2, d.valor / despCat[0].valor * 100)}%`, height:"100%", background:C.navy}}></div>
-                        </div>
-                      </div>
-                    ))}
+                {(vencidosAP.length > 0 || notasVenc.length > 0) && (
+                  <div role="status" style={{background:C.tint, border:`1px solid ${C.amber}`, borderRadius:12, padding:"10px 12px", fontSize:15, display:"flex", flexDirection:"column", gap:2}}>
+                    {vencidosAP.length > 0 && <span><strong>{plural(vencidosAP.length, "conta vencida", "contas vencidas")}</strong> · {$(soma(vencidosAP))}</span>}
+                    {notasVenc.length > 0 && <span><strong>{plural(notasVenc.length, "nota atrasada", "notas atrasadas")}</strong> a receber · {$(soma(notasVenc))}</span>}
                   </div>
                 )}
-              </section>
-            )}
 
-            {/* A RECEBER */}
-            {tab === "receber" && (
-              <section style={{display:"flex", flexDirection:"column", gap:12}}>
-                <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
-                  <span style={{fontSize:15, color:C.muted}}>{plural(notasPend.length, "nota", "notas")} · {plural(grupos.length, "cliente", "clientes")}</span>
-                  <span className="num" style={{fontSize:20, fontWeight:700}}>{fmtBRL(soma(notasPend))}</span>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+                  <button type="button" onClick={() => setTab("pagar")} style={{...card, padding:14, textAlign:"left", cursor:"pointer", color:C.ink, display:"flex", flexDirection:"column", gap:4}}>
+                    <span style={{fontSize:13, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em", color:C.muted}}>A pagar</span>
+                    <span className="num" style={{fontSize:20, fontWeight:700, color:C.danger}}>{$(aPagar)}</span>
+                    <span style={{fontSize:13, color:C.muted}}>{plural(compromissos.length, "conta", "contas")}</span>
+                  </button>
+                  <button type="button" onClick={() => setTab("receber")} style={{...card, padding:14, textAlign:"left", cursor:"pointer", color:C.ink, display:"flex", flexDirection:"column", gap:4}}>
+                    <span style={{fontSize:13, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em", color:C.muted}}>A receber</span>
+                    <span className="num" style={{fontSize:20, fontWeight:700, color:C.ok}}>{$(aReceber)}</span>
+                    <span style={{fontSize:13, color:C.muted}}>{plural(notasPend.length, "nota", "notas")}</span>
+                  </button>
                 </div>
-                {grupos.length === 0 && (
-                  <div style={{...card, padding:"24px 16px", textAlign:"center", fontSize:15, color:C.muted}}>Nenhuma nota pendente.</div>
+
+                {compromissos.length > 0 && (
+                  <Bloco titulo="Próximas contas" acao="Ver todas" onAcao={() => setTab("pagar")}>
+                    {compromissos.slice(0,3).map(c => <LinhaConta key={c.kind+c.id} c={c} $={$} onPagar={() => abrirPagar(c)}/>)}
+                  </Bloco>
                 )}
-                {grupos.map(g => (
-                  <div key={g.cliente} style={{...card, overflow:"hidden"}}>
-                    <div style={{background:C.navy, color:"#fff", padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
-                      <div style={{display:"flex", flexDirection:"column", minWidth:0}}>
-                        <span style={{fontSize:17, fontWeight:700}}>{g.cliente}</span>
-                        <span style={{fontSize:13, color:C.navySoft}}>{plural(g.notas.length, "nota pendente", "notas pendentes")}</span>
-                      </div>
-                      <span className="num" style={{fontSize:18, fontWeight:700, whiteSpace:"nowrap"}}>{fmtBRL(g.total)}</span>
-                    </div>
-                    {g.notas.map(n => {
-                      const p = prazoInfo(n.vencimento);
-                      return (
-                        <div key={n.id} style={{padding:"12px 14px", borderTop:`1px solid ${C.borderSoft}`, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8}}>
-                          <div style={{display:"flex", flexDirection:"column", gap:2, minWidth:0}}>
-                            <span className="mono" style={{fontSize:13, color:C.muted}}>{n.numNota ? `NF ${n.numNota}` : "Sem número"}</span>
-                            <span style={{fontSize:14, color:C.muted}}>Vencimento {fmtData(n.vencimento)}</span>
-                          </div>
-                          <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0}}>
-                            <span className="num" style={{fontSize:17, fontWeight:700}}>{fmtBRL(n.valor)}</span>
-                            <span style={{fontSize:14, fontWeight:600, color:p.cor}}>{p.txt}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-                {grupos.length > 0 && (
-                  <a href="index.html" style={{fontSize:15, fontWeight:600, textAlign:"center", padding:"8px 0"}}>Dar baixa no app Financeiro</a>
+
+                {notasPend.length > 0 && (
+                  <Bloco titulo="A receber" acao="Ver todas" onAcao={() => setTab("receber")}>
+                    {notasPend.slice(0,3).map(n => <LinhaNota key={n.id} n={n} $={$} onReceber={() => abrirReceber(n)}/>)}
+                  </Bloco>
                 )}
+
+                <Bloco titulo="Últimas movimentações" acao="Ver extrato" onAcao={() => setTab("extrato")}>
+                  {recentes.length === 0
+                    ? <p style={{margin:0, padding:"16px 14px", fontSize:15, color:C.muted}}>Nenhuma movimentação ainda. Use <strong>Receita</strong> ou <strong>Despesa</strong> acima.</p>
+                    : recentes.map(l => <LinhaMov key={l.id} l={l} $={$} mostrarData/>)}
+                </Bloco>
+
+                <FaturamentoMensal meses={meses} oculto={oculto}/>
               </section>
             )}
 
-            {/* A PAGAR */}
+            {tab === "extrato" && <Extrato lancamentos={lancamentos} $={$}/>}
+
+            {/* PAGAR */}
             {tab === "pagar" && (
               <section style={{display:"flex", flexDirection:"column", gap:12}}>
                 <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
-                  <span style={{fontSize:15, color:C.muted}}>{plural(compromissos.length, "compromisso em aberto", "compromissos em aberto")}</span>
-                  <span className="num" style={{fontSize:20, fontWeight:700}}>{fmtBRL(totalAP)}</span>
+                  <span style={{fontSize:15, color:C.muted}}>{plural(compromissos.length, "conta em aberto", "contas em aberto")}</span>
+                  <span className="num" style={{fontSize:20, fontWeight:700}}>{$(aPagar)}</span>
                 </div>
-                {compromissos.length === 0 ? (
-                  <div style={{...card, padding:"24px 16px", textAlign:"center", fontSize:15, color:C.muted}}>Nada a pagar. Todas as contas estão em dia.</div>
-                ) : (
-                  <div style={{...card, overflow:"hidden"}}>
-                    {compromissos.map((c, i) => {
-                      const p = prazoInfo(c.vencimento);
-                      const venc = isVencido(c.vencimento);
-                      return (
-                        <div key={c.id} style={{padding:"12px 14px", borderTop: i ? `1px solid ${C.borderSoft}` : "none", background: venc ? "#FDF0EE" : C.card, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8}}>
-                          <div style={{display:"flex", flexDirection:"column", gap:2, minWidth:0}}>
-                            <span style={{fontSize:15, fontWeight:600}}>{c.descricao}</span>
-                            <span style={{fontSize:13, color:C.muted}}>
-                              {c.tipo}{c.categoria ? ` · ${c.categoria}` : ""}{c.parcela ? ` · parcela ${c.parcela}` : ""}
-                            </span>
-                            <span style={{fontSize:14, color:C.muted}}>Vencimento {fmtData(c.vencimento)}</span>
-                          </div>
-                          <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0}}>
-                            <span className="num" style={{fontSize:17, fontWeight:700}}>{fmtBRL(c.valor)}</span>
-                            <span style={{fontSize:14, fontWeight:600, color:p.cor}}>{p.txt}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {compromissos.length === 0
+                  ? <div style={{...card, padding:"24px 16px", textAlign:"center", fontSize:15, color:C.muted}}>Nada a pagar. Todas as contas estão em dia.</div>
+                  : <div style={{...card, overflow:"hidden"}}>{compromissos.map(c => <LinhaConta key={c.kind+c.id} c={c} $={$} onPagar={() => abrirPagar(c)}/>)}</div>}
+                <p style={{margin:0, fontSize:13, color:C.muted, textAlign:"center"}}>Para cadastrar boletos e dívidas, use o app <a href="index.html">Financeiro</a>.</p>
               </section>
             )}
 
-            {/* EVOLUÇÃO */}
-            {tab === "evolucao" && (
-              <section style={{display:"flex", flexDirection:"column", gap:16}}>
-                <FaturamentoMensal meses={meses} />
-
-                <div style={{...card, overflow:"hidden"}}>
-                  <div style={{padding:"14px 16px 10px"}}><h2 style={h2}>Resultado por mês</h2></div>
-                  <div style={{overflowX:"auto"}}><div style={{minWidth:340}}>
-                  <div style={{display:"grid", gridTemplateColumns:"48px 1fr 1fr 1fr", gap:8, padding:"8px 16px", background:"#23272E", color:"#fff", fontSize:13, fontWeight:600, letterSpacing:"0.02em", textTransform:"uppercase"}}>
-                    <span>Mês</span><span style={{textAlign:"right"}}>Receita</span><span style={{textAlign:"right"}}>Despesa</span><span style={{textAlign:"right"}}>Saldo</span>
-                  </div>
-                  {meses.map(m => {
-                    const r = m.rec - m.desp;
-                    return (
-                      <div key={m.m} className="num" style={{display:"grid", gridTemplateColumns:"48px 1fr 1fr 1fr", gap:8, padding:"10px 16px", whiteSpace:"nowrap", borderTop:`1px solid ${C.borderSoft}`, fontSize:14, background: m.atual ? C.tint : C.card}}>
-                        <span style={{fontWeight:600, textTransform:"capitalize"}}>{m.rot}</span>
-                        <span style={{textAlign:"right"}}>{fmtBRLc(m.rec)}</span>
-                        <span style={{textAlign:"right"}}>{fmtBRLc(m.desp)}</span>
-                        <span style={{textAlign:"right", fontWeight:700, color: r > 0 ? C.ok : r < 0 ? C.danger : C.muted}}>{fmtBRLc(r)}</span>
-                      </div>
-                    );
-                  })}
-                  </div></div>
+            {/* RECEBER */}
+            {tab === "receber" && (
+              <section style={{display:"flex", flexDirection:"column", gap:12}}>
+                <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
+                  <span style={{fontSize:15, color:C.muted}}>{plural(notasPend.length, "nota pendente", "notas pendentes")}</span>
+                  <span className="num" style={{fontSize:20, fontWeight:700}}>{$(aReceber)}</span>
                 </div>
-
-                {dividas.filter(d => d.status === "Ativo").length > 0 && (
-                  <div style={{...card, padding:16, display:"flex", flexDirection:"column", gap:14}}>
-                    <h2 style={h2}>Dívidas ativas</h2>
-                    {dividas.filter(d => d.status === "Ativo").map(d => {
-                      const pct = d.parcelaTotal > 0 ? Math.min(1, d.parcelaPaga / d.parcelaTotal) : 0;
-                      return (
-                        <div key={d.id} style={{display:"flex", flexDirection:"column", gap:4}}>
-                          <div style={{display:"flex", justifyContent:"space-between", gap:8}}>
-                            <span style={{fontSize:15, fontWeight:600}}>{d.credor}</span>
-                            <span className="num" style={{fontSize:14, color:C.muted}}>{fmtBRL(d.saldo)} restante</span>
-                          </div>
-                          <div style={{height:8, background:C.borderSoft, borderRadius:4, overflow:"hidden"}}>
-                            <div style={{width:`${pct*100}%`, height:"100%", background:C.navy}}></div>
-                          </div>
-                          <div style={{display:"flex", justifyContent:"space-between", fontSize:13, color:C.muted}}>
-                            <span>{d.parcelaTotal > 0 ? `${d.parcelaPaga||0}/${d.parcelaTotal} parcelas` : "Parcelas não informadas"}</span>
-                            <span className="num">{fmtBRL(d.valorParcela)}/mês</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {notasPend.length === 0
+                  ? <div style={{...card, padding:"24px 16px", textAlign:"center", fontSize:15, color:C.muted}}>Nenhuma nota pendente.</div>
+                  : <div style={{...card, overflow:"hidden"}}>{notasPend.map(n => <LinhaNota key={n.id} n={n} $={$} onReceber={() => abrirReceber(n)}/>)}</div>}
+                <p style={{margin:0, fontSize:13, color:C.muted, textAlign:"center"}}>Para cadastrar notas, use o app <a href="index.html">Financeiro</a>.</p>
               </section>
             )}
           </main>
 
           <nav aria-label="Telas" style={{position:"sticky", bottom:0, background:"#fff", borderTop:`1px solid ${C.border}`, paddingBottom:"env(safe-area-inset-bottom)"}}>
             <div style={{maxWidth:560, margin:"0 auto", display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))"}}>
-              {NAV.map(n => {
-                const ativo = tab === n.k;
+              {[["inicio","Início",I.home],["extrato","Extrato",I.list],["pagar","Pagar",I.bill],["receber","Receber",I.inbox]].map(([k,l,ic]) => {
+                const ativo = tab === k;
                 return (
-                  <button key={n.k} type="button" onClick={() => setTab(n.k)} aria-current={ativo ? "page" : undefined}
+                  <button key={k} type="button" onClick={() => setTab(k)} aria-current={ativo ? "page" : undefined}
                     style={{minHeight:60, border:0, borderTop:`3px solid ${ativo ? C.amber : "transparent"}`, background:"#fff", color: ativo ? C.navy : C.muted, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2, fontSize:13, fontWeight:600, cursor:"pointer"}}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{n.icon}</svg>
-                    {n.l}
+                    <Icon d={ic}/>{l}
                   </button>
                 );
               })}
             </div>
           </nav>
+
+          {form && (
+            <Sheet titulo={form.tipo === "Receita" ? "Nova receita" : "Nova despesa"} onFechar={() => setForm(null)}>
+              <form onSubmit={salvarLancamento} style={{display:"flex", flexDirection:"column", gap:12}}>
+                <label style={lbl}>Valor (R$)
+                  <input autoFocus type="number" inputMode="decimal" step="0.01" min="0" value={form.valor} onChange={e => setForm({...form, valor:e.target.value, erro:""})} style={{...inp, fontSize:24, fontWeight:700}} className="num"/>
+                </label>
+                <label style={lbl}>Descrição
+                  <input value={form.descricao} onChange={e => setForm({...form, descricao:e.target.value, erro:""})} placeholder={form.tipo === "Receita" ? "Ex.: Frete SP → RJ" : "Ex.: Diesel caminhão 2"} style={inp}/>
+                </label>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+                  <label style={lbl}>Categoria
+                    <select value={form.categoria} onChange={e => setForm({...form, categoria:e.target.value})} style={inp}>
+                      {(form.tipo === "Receita" ? CATS_REC : CATS_DESP).map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </label>
+                  <label style={lbl}>Data
+                    <input type="date" value={form.data} onChange={e => setForm({...form, data:e.target.value})} style={inp}/>
+                  </label>
+                </div>
+                {form.erro && <p role="alert" style={{margin:0, fontSize:14, fontWeight:600, color:C.danger}}>{form.erro}</p>}
+                <button type="submit" style={{...btnPrim, background: form.tipo === "Receita" ? C.ok : C.danger, minHeight:48}}>Lançar {form.tipo === "Receita" ? "receita" : "despesa"}</button>
+              </form>
+            </Sheet>
+          )}
+
+          {baixa && (
+            <Sheet titulo={baixa.modo === "pagar" ? "Confirmar pagamento" : "Confirmar recebimento"} onFechar={() => setBaixa(null)}>
+              <div style={{display:"flex", flexDirection:"column", gap:14}}>
+                <div style={{background:C.bg, borderRadius:12, padding:14, display:"flex", flexDirection:"column", gap:2}}>
+                  <span style={{fontSize:17, fontWeight:700}}>{baixa.titulo}</span>
+                  <span style={{fontSize:14, color:C.muted}}>{baixa.sub}</span>
+                  <span className="num" style={{fontSize:28, fontWeight:700, marginTop:6, color: baixa.modo === "pagar" ? C.danger : C.ok}}>{fmtBRL(baixa.valor)}</span>
+                </div>
+                <label style={{display:"flex", alignItems:"center", gap:10, fontSize:15, minHeight:44, cursor:"pointer"}}>
+                  <input type="checkbox" checked={baixa.lancar} onChange={e => setBaixa({...baixa, lancar:e.target.checked})} style={{width:20, height:20}}/>
+                  Registrar no extrato como {baixa.modo === "pagar" ? "despesa" : "receita"}
+                </label>
+                {baixa.lancar && (
+                  <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+                    <label style={lbl}>Categoria
+                      <select value={baixa.categoria} onChange={e => setBaixa({...baixa, categoria:e.target.value})} style={inp}>
+                        {(baixa.modo === "pagar" ? CATS_DESP : CATS_REC).map(c => <option key={c}>{c}</option>)}
+                      </select>
+                    </label>
+                    <label style={lbl}>Data
+                      <input type="date" value={baixa.data} onChange={e => setBaixa({...baixa, data:e.target.value})} style={inp}/>
+                    </label>
+                  </div>
+                )}
+                <div style={{display:"grid", gridTemplateColumns:"1fr 2fr", gap:8}}>
+                  <button type="button" onClick={() => setBaixa(null)} style={btnSec}>Cancelar</button>
+                  <button type="button" onClick={confirmarBaixa} style={{...btnPrim, background: baixa.modo === "pagar" ? C.navy : C.ok}}>{baixa.modo === "pagar" ? "Confirmar pago" : "Confirmar recebido"}</button>
+                </div>
+              </div>
+            </Sheet>
+          )}
+
+          {toast && (
+            <div role="status" style={{position:"fixed", left:16, right:16, bottom:"calc(76px + env(safe-area-inset-bottom))", maxWidth:528, margin:"0 auto", background:C.ink, color:"#fff", borderRadius:12, padding:"10px 10px 10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, fontSize:15, boxShadow:"0 6px 20px rgba(0,0,0,0.2)", zIndex:40}}>
+              <span>{toast.msg}</span>
+              {toast.desfazer && <button type="button" onClick={() => { toast.desfazer(); setToast(null); }} style={{minHeight:40, padding:"0 12px", border:0, borderRadius:8, background:"transparent", color:C.amber, fontSize:15, fontWeight:700, cursor:"pointer"}}>Desfazer</button>}
+            </div>
+          )}
         </div>
       );
     }
 
-    const NAV = [
-      { k: "resumo", l: "Resumo", icon: <><path d="M3 3v18h18"/><path d="M8 16v-5"/><path d="M13 16V7"/><path d="M18 16v-3"/></> },
-      { k: "receber", l: "A receber", icon: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></> },
-      { k: "pagar", l: "A pagar", icon: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></> },
-      { k: "evolucao", l: "Evolução", icon: <><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></> },
-    ];
+    function Bloco({ titulo, acao, onAcao, children }) {
+      return (
+        <div style={{...card, overflow:"hidden"}}>
+          <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 14px 8px"}}>
+            <h2 style={{...h2, fontSize:18}}>{titulo}</h2>
+            {acao && <button type="button" onClick={onAcao} style={{border:0, background:"transparent", color:"#1F5FBF", fontSize:14, fontWeight:700, cursor:"pointer", minHeight:40}}>{acao}</button>}
+          </div>
+          {children}
+        </div>
+      );
+    }
 
-    function FaturamentoMensal({ meses }) {
+    function LinhaConta({ c, $, onPagar }) {
+      const p = prazoInfo(c.vencimento);
+      return (
+        <div style={{padding:"12px 14px", borderTop:`1px solid ${C.borderSoft}`, display:"flex", alignItems:"center", gap:12, background: isVencido(c.vencimento) ? "#FDF0EE" : "transparent"}}>
+          <div style={{flex:"1 1 auto", minWidth:0, display:"flex", flexDirection:"column", gap:2}}>
+            <span style={{fontSize:15, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{c.descricao}</span>
+            <span style={{fontSize:13, color:C.muted}}>{c.kind === "divida" ? `Parcela ${c.parcela}` : (c.categoria || "Boleto")} · {fmtData(c.vencimento)}</span>
+            <span style={{fontSize:13, fontWeight:600, color:p.cor}}>{p.txt}</span>
+          </div>
+          <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0}}>
+            <span className="num" style={{fontSize:16, fontWeight:700}}>{$(c.valor)}</span>
+            <button type="button" onClick={onPagar} style={btnMini(C.navy)}>Pagar</button>
+          </div>
+        </div>
+      );
+    }
+
+    function LinhaNota({ n, $, onReceber }) {
+      const p = prazoInfo(n.vencimento);
+      return (
+        <div style={{padding:"12px 14px", borderTop:`1px solid ${C.borderSoft}`, display:"flex", alignItems:"center", gap:12}}>
+          <div style={{flex:"1 1 auto", minWidth:0, display:"flex", flexDirection:"column", gap:2}}>
+            <span style={{fontSize:15, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{n.cliente || "Sem cliente"}</span>
+            <span style={{fontSize:13, color:C.muted}}><span className="mono">{n.numNota ? `NF ${n.numNota}` : "Sem número"}</span> · {fmtData(n.vencimento)}</span>
+            <span style={{fontSize:13, fontWeight:600, color:p.cor}}>{p.txt}</span>
+          </div>
+          <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0}}>
+            <span className="num" style={{fontSize:16, fontWeight:700}}>{$(n.valor)}</span>
+            <button type="button" onClick={onReceber} style={btnMini(C.ok)}>Recebi</button>
+          </div>
+        </div>
+      );
+    }
+
+    function LinhaMov({ l, $, mostrarData }) {
+      const rec = l.tipo === "Receita";
+      return (
+        <div style={{padding:"10px 14px", borderTop:`1px solid ${C.borderSoft}`, display:"flex", alignItems:"center", gap:12}}>
+          <span style={{width:36, height:36, flexShrink:0, borderRadius:999, background: rec ? "#E6F2EB" : "#FBE9E7", color: rec ? C.ok : C.danger, display:"flex", alignItems:"center", justifyContent:"center"}}>
+            <Icon d={rec ? I.up : I.down} size={18}/>
+          </span>
+          <div style={{flex:"1 1 auto", minWidth:0, display:"flex", flexDirection:"column", gap:1}}>
+            <span style={{fontSize:15, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{l.descricao || "—"}</span>
+            <span style={{fontSize:13, color:C.muted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{l.categoria}{mostrarData ? ` · ${fmtData(l.data)}` : ""}</span>
+          </div>
+          <span className="num" style={{fontSize:15, fontWeight:700, color: rec ? C.ok : C.ink, whiteSpace:"nowrap"}}>{rec ? "+ " : "− "}{$(l.valor)}</span>
+        </div>
+      );
+    }
+
+    function Extrato({ lancamentos, $ }) {
+      const [mes, setMes] = useState(todayISO().slice(0,7));
+      const [filtro, setFiltro] = useState("todos");
+      const doMes = lancamentos.filter(l => l.data && l.data.startsWith(mes));
+      const lista = doMes.filter(l => filtro === "todos" || (filtro === "entradas" ? l.tipo === "Receita" : l.tipo === "Despesa"))
+        .sort((a,b) => (b.data||"").localeCompare(a.data||""));
+      const grupos = [];
+      lista.forEach(l => { const g = grupos[grupos.length-1]; if (g && g.dia === l.data) g.itens.push(l); else grupos.push({ dia: l.data, itens: [l] }); });
+      const ent = soma(doMes.filter(l => l.tipo === "Receita")), sai = soma(doMes.filter(l => l.tipo === "Despesa"));
+      return (
+        <section style={{display:"flex", flexDirection:"column", gap:12}}>
+          <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:8}}>
+            <button type="button" onClick={() => setMes(addMes(mes,-1))} aria-label="Mês anterior" style={{...btnSec, padding:0, width:44, display:"flex", alignItems:"center", justifyContent:"center"}}><Icon d={I.chevL}/></button>
+            <span style={{fontSize:18, fontWeight:700}}>{mesRotulo(mes)}</span>
+            <button type="button" onClick={() => setMes(addMes(mes,1))} aria-label="Próximo mês" style={{...btnSec, padding:0, width:44, display:"flex", alignItems:"center", justifyContent:"center"}}><Icon d={I.chevR}/></button>
+          </div>
+          <div style={{...card, padding:14, display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8}}>
+            {[["Entradas", ent, C.ok], ["Saídas", sai, C.danger], ["Saldo", ent - sai, ent - sai < 0 ? C.danger : C.ink]].map(([t,v,c]) => (
+              <div key={t} style={{display:"flex", flexDirection:"column", gap:2, minWidth:0}}>
+                <span style={{fontSize:12, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em", color:C.muted}}>{t}</span>
+                <span className="num" style={{fontSize:15, fontWeight:700, color:c, overflowWrap:"anywhere"}}>{$(v)}</span>
+              </div>
+            ))}
+          </div>
+          <div role="group" aria-label="Filtro" style={{display:"flex", gap:8}}>
+            {[["todos","Todos"],["entradas","Entradas"],["saidas","Saídas"]].map(([k,l]) => (
+              <button key={k} type="button" onClick={() => setFiltro(k)} aria-pressed={filtro === k}
+                style={{minHeight:40, padding:"0 16px", borderRadius:999, border:`1px solid ${filtro === k ? C.navy : C.border}`, background: filtro === k ? C.navy : "#fff", color: filtro === k ? "#fff" : C.ink, fontSize:14, fontWeight:600, cursor:"pointer"}}>{l}</button>
+            ))}
+          </div>
+          {grupos.length === 0
+            ? <div style={{...card, padding:"24px 16px", textAlign:"center", fontSize:15, color:C.muted}}>Nenhuma movimentação neste mês.</div>
+            : grupos.map(g => (
+              <div key={g.dia} style={{...card, overflow:"hidden"}}>
+                <div style={{padding:"10px 14px 6px", display:"flex", justifyContent:"space-between", fontSize:13, fontWeight:700, color:C.muted}}>
+                  <span>{diaRotulo(g.dia)}</span>
+                  <span className="num">{$(soma(g.itens.filter(l => l.tipo === "Receita")) - soma(g.itens.filter(l => l.tipo === "Despesa")))}</span>
+                </div>
+                {g.itens.map(l => <LinhaMov key={l.id} l={l} $={$}/>)}
+              </div>
+            ))}
+        </section>
+      );
+    }
+
+    function Sheet({ titulo, onFechar, children }) {
+      useEffect(() => {
+        const k = e => { if (e.key === "Escape") onFechar(); };
+        document.addEventListener("keydown", k);
+        return () => document.removeEventListener("keydown", k);
+      }, [onFechar]);
+      return (
+        <div onClick={onFechar} style={{position:"fixed", inset:0, background:"rgba(20,24,30,0.45)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:50}}>
+          <div role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}
+            style={{width:"100%", maxWidth:560, background:"#fff", borderRadius:"16px 16px 0 0", padding:"16px 16px calc(20px + env(safe-area-inset-bottom))", display:"flex", flexDirection:"column", gap:14, maxHeight:"90vh", overflowY:"auto"}}>
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+              <h2 style={h2}>{titulo}</h2>
+              <button type="button" onClick={onFechar} aria-label="Fechar" style={{minWidth:44, minHeight:44, border:0, background:"transparent", cursor:"pointer", color:C.ink, display:"flex", alignItems:"center", justifyContent:"center"}}><Icon d={I.x}/></button>
+            </div>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    function FaturamentoMensal({ meses, oculto }) {
       const max = Math.max(1, ...meses.map(m => m.rec));
       return (
         <div style={{...card, padding:16, display:"flex", flexDirection:"column", gap:12}}>
           <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8}}>
-            <h2 style={h2}>Faturamento por mês</h2>
+            <h2 style={{...h2, fontSize:18}}>Faturamento por mês</h2>
             <span style={{fontSize:13, color:C.muted}}>receitas, 6 meses</span>
           </div>
-          <div role="img" aria-label={"Receitas por mês: " + meses.map(m => `${m.rot} ${fmtBRL(m.rec)}`).join(", ")}
-            style={{display:"grid", gridTemplateColumns:"repeat(6, minmax(0, 1fr))", gap:8, alignItems:"end", height:190, borderBottom:`1px solid ${C.border}`}}>
+          <div role="img" aria-label={oculto ? "Gráfico de receitas por mês" : "Receitas por mês: " + meses.map(m => `${m.rot} ${fmtBRL(m.rec)}`).join(", ")}
+            style={{display:"grid", gridTemplateColumns:"repeat(6, minmax(0, 1fr))", gap:8, alignItems:"end", height:170, borderBottom:`1px solid ${C.border}`}}>
             {meses.map(m => (
               <div key={m.m} style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-end", gap:4, height:"100%"}}>
-                <span style={{fontSize:11, fontWeight:600, color:C.muted, textAlign:"center", whiteSpace:"nowrap"}}>{m.rec ? fmtBRLc(m.rec) : "—"}</span>
-                <div title={fmtBRL(m.rec)} style={{width:"100%", maxWidth:44, height: m.rec ? Math.max(4, Math.round(m.rec / max * 150)) : 0, background: m.atual ? C.amber : C.navy, borderRadius:"4px 4px 0 0"}}></div>
+                <span style={{fontSize:11, fontWeight:600, color:C.muted, textAlign:"center", whiteSpace:"nowrap"}}>{oculto ? "•••" : m.rec ? fmtBRLc(m.rec) : "—"}</span>
+                <div style={{width:"100%", maxWidth:44, height: m.rec ? Math.max(4, Math.round(m.rec / max * 130)) : 0, background: m.atual ? C.amber : C.navy, borderRadius:"4px 4px 0 0"}}></div>
               </div>
             ))}
           </div>
           <div style={{display:"grid", gridTemplateColumns:"repeat(6, minmax(0, 1fr))", gap:8}}>
-            {meses.map(m => (
-              <span key={m.m} style={{fontSize:13, fontWeight:600, textAlign:"center", color:C.muted, textTransform:"capitalize"}}>{m.rot}</span>
-            ))}
+            {meses.map(m => <span key={m.m} style={{fontSize:13, fontWeight:600, textAlign:"center", color:C.muted, textTransform:"capitalize"}}>{m.rot}</span>)}
           </div>
         </div>
       );

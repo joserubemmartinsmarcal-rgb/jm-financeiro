@@ -1,5 +1,5 @@
 // JM Transportes Financeiro — Service Worker
-const CACHE = 'jm-v2';
+const CACHE = 'jm-v3';
 const PRECACHE = [
   './',
   './index.html',
