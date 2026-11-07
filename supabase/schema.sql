@@ -13,13 +13,14 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 drop policy if exists "profile owner read" on public.profiles;
-create policy "profile owner read" on public.profiles for select using (auth.uid() = id);
+create policy "profile owner read" on public.profiles for select using ((select auth.uid()) = id);
 
+-- Sem policy de UPDATE: o plano só muda pelo webhook de cobrança (service role).
+-- Uma policy de update deixaria qualquer usuário trocar o próprio plano para 'pro'.
 drop policy if exists "profile owner update" on public.profiles;
-create policy "profile owner update" on public.profiles for update using (auth.uid() = id);
 
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   insert into public.profiles (id, email) values (new.id, new.email)
   on conflict (id) do nothing;
@@ -29,6 +30,12 @@ end $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- A função só deve rodar pelo trigger, nunca via /rest/v1/rpc
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+-- Cria perfil para usuários que já existiam no projeto
+insert into public.profiles (id, email) select id, email from auth.users on conflict (id) do nothing;
 
 create table if not exists public.lancamentos (
   id text primary key,
@@ -83,7 +90,7 @@ begin
   for t in select unnest(array['lancamentos','boletos','notas','dividas']) loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists "owner all" on public.%I', t);
-    execute format('create policy "owner all" on public.%I for all using (auth.uid() = user_id) with check (auth.uid() = user_id)', t);
+    execute format('create policy "owner all" on public.%I for all using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id)', t);
   end loop;
 end $$;
 
